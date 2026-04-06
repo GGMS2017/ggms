@@ -1,0 +1,294 @@
+{
+  "users": [
+    {
+      "id": "user_1",
+      "name": "김수강",
+      "email": "student@test.com",
+      "role": "student"
+    },
+    {
+      "id": "admin_1",
+      "name": "최관리",
+      "email": "admin@test.com",
+      "role": "admin"
+    },
+    {
+      "id": "instructor_1",
+      "name": "박강사",
+      "email": "instructor@test.com",
+      "role": "instructor"
+    }
+  ],
+  "courses": [
+    {
+      "id": "course_1",
+      "title": "랭체인을 활용한 AI 영상객체탐지분석 플랫폼 구축과정",
+      "instructor": "K-Digital Training",
+      "thumbnail": "https://images.unsplash.com/photo-1677442136019-21780ecad995?auto=format&fit=crop&w=800&q=80",
+      "description": "최신 AI 기술인 LangChain과 컴퓨터 비전을 활용하여 지능형 영상객체탐지 플랫폼을 구축하는 실무 과정입니다.",
+      "tags": [
+        "AI",
+        "LangChain",
+        "Computer Vision"
+      ],
+      "curriculum": [
+        {
+          "id": "section_1_1",
+          "title": "섹션 1. LangChain과 AI 엔지니어링 개요",
+          "lectures": [
+            {
+              "id": "lec_1_1_1",
+              "title": "과정 오리엔테이션 및 학습 가이드",
+              "duration": "12:30",
+              "type": "video"
+            },
+            {
+              "id": "lec_1_1_2",
+              "title": "생성형 AI와 LLM 생태계의 이해",
+              "duration": "25:15",
+              "type": "video"
+            },
+            {
+              "id": "lec_1_1_3",
+              "title": "LangChain 아키텍처 파헤치기",
+              "duration": "30:00",
+              "type": "video"
+            }
+          ]
+        },
+        {
+          "id": "section_1_2",
+          "title": "섹션 2. 영상객체탐지(Object Detection) 기초",
+          "lectures": [
+            {
+              "id": "lec_1_2_1",
+              "title": "OpenCV와 YOLO 모델의 만남",
+              "duration": "28:45",
+              "type": "video"
+            },
+            {
+              "id": "lec_1_2_2",
+              "title": "실시간 영상 처리 파이프라인 구축",
+              "duration": "45:10",
+              "type": "video"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "course_2",
+      "title": "(산대특) AWS클라우드 환경의 인프라구축을 통한 보안전문가 양성과정",
+      "instructor": "K-Digital Training",
+      "thumbnail": "https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=800&q=80",
+      "description": "현업에서 널리 쓰이는 AWS 클라우드 아키텍처를 기반으로 강력한 보안 인프라를 설계/구축하는 방법을 배웁니다.",
+      "tags": [
+        "AWS",
+        "Cloud",
+        "Security"
+      ],
+      "curriculum": [
+        {
+          "id": "section_2_1",
+          "title": "섹션 1. AWS 클라우드 기초 아키텍처",
+          "lectures": [
+            {
+              "id": "lec_2_1_1",
+              "title": "AWS 인프라 핵심 서비스(EC2, VPC, S3) 이해",
+              "duration": "32:00",
+              "type": "video"
+            },
+            {
+              "id": "lec_2_1_2",
+              "title": "IAM과 권한 관리의 정석",
+              "duration": "25:40",
+              "type": "video"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "course_3",
+      "title": "풀스택 웹 개발자 부트캠프 (React & Node.js)",
+      "instructor": "K-Digital Training",
+      "thumbnail": "https://images.unsplash.com/photo-1633356122544-f134324a6cee?auto=format&fit=crop&w=800&q=80",
+      "description": "React 기반의 프론트엔드부터 Node.js 백엔드까지 웹 서비스 창업을 위한 A to Z를 마스터하는 과정입니다.",
+      "tags": [
+        "Web",
+        "React",
+        "Node.js",
+        "Fullstack"
+      ],
+      "curriculum": [
+        {
+          "id": "section_3_1",
+          "title": "섹션 1. 프론트엔드 기초와 SPA",
+          "lectures": [
+            {
+              "id": "lec_3_1_1",
+              "title": "React 이해 및 컴포넌트 아키텍처",
+              "duration": "40:00",
+              "type": "video"
+            },
+            {
+              "id": "lec_3_1_2",
+              "title": "상태 관리 패러다임 변화",
+              "duration": "35:00",
+              "type": "video"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "course_4",
+      "title": "데이터 사이언티스트를 위한 Python 머신러닝",
+      "instructor": "K-Digital Training",
+      "thumbnail": "https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=800&q=80",
+      "description": "Pandas, Scikit-learn을 활용한 데이터 분석 모델링부터 평가 시각화까지 데이터 사이언스의 기반을 다집니다.",
+      "tags": [
+        "Data Science",
+        "Python",
+        "ML"
+      ],
+      "curriculum": [
+        {
+          "id": "section_4_1",
+          "title": "섹션 1. 데이터 분석 기초",
+          "lectures": [
+            {
+              "id": "lec_4_1_1",
+              "title": "Pandas 심화 전처리",
+              "duration": "25:00",
+              "type": "video"
+            },
+            {
+              "id": "lec_4_1_2",
+              "title": "시각화 라이브러리 Matplotlib 활용",
+              "duration": "30:00",
+              "type": "video"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "course_5",
+      "title": "네이티브 앱 프로그래머 (Flutter & Firebase)",
+      "instructor": "K-Digital Training",
+      "thumbnail": "https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?auto=format&fit=crop&w=800&q=80",
+      "description": "강력하고 유려한 크로스플랫폼 Flutter 앱 프레임워크와 Serverless Firebase를 사용해 앱 서비스를 즉시 론칭합니다.",
+      "tags": [
+        "Mobile",
+        "Flutter",
+        "Firebase"
+      ],
+      "curriculum": [
+        {
+          "id": "section_5_1",
+          "title": "섹션 1. Flutter 위젯 기초",
+          "lectures": [
+            {
+              "id": "lec_5_1_1",
+              "title": "Stateless vs Stateful 위젯",
+              "duration": "35:00",
+              "type": "video"
+            },
+            {
+              "id": "lec_5_1_2",
+              "title": "UI 레이아웃의 기본",
+              "duration": "45:00",
+              "type": "video"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "course_6",
+      "title": "비전공자를 위한 실무 중심 UI/UX 디자인",
+      "instructor": "K-Digital Training",
+      "thumbnail": "https://images.unsplash.com/photo-1561070791-2526d30994b5?auto=format&fit=crop&w=800&q=80",
+      "description": "Figma를 활용한 컴포넌트 시스템 구축과 사용자 경험 조사를 통해 실제 출시 가능한 수준의 목업을 개발합니다.",
+      "tags": [
+        "Design",
+        "UI/UX",
+        "Figma"
+      ],
+      "curriculum": [
+        {
+          "id": "section_6_1",
+          "title": "섹션 1. UX 리서치 설계",
+          "lectures": [
+            {
+              "id": "lec_6_1_1",
+              "title": "데이터 기반 UX 분석 기법",
+              "duration": "20:00",
+              "type": "video"
+            },
+            {
+              "id": "lec_6_1_2",
+              "title": "페르소나 정의 및 여정 맵",
+              "duration": "25:00",
+              "type": "video"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "course_7",
+      "title": "현업 DevOps 엔지니어링: CI/CD 완벽 정복",
+      "instructor": "K-Digital Training",
+      "thumbnail": "https://images.unsplash.com/photo-1618401471353-b98afee0b2eb?auto=format&fit=crop&w=800&q=80",
+      "description": "Docker, Kubernetes, GitHub Actions를 조합하여 서비스 무중단 배포 시스템을 처음부터 끝까지 구축합니다.",
+      "tags": [
+        "DevOps",
+        "Docker",
+        "Kubernetes",
+        "CI/CD"
+      ],
+      "curriculum": [
+        {
+          "id": "section_7_1",
+          "title": "섹션 1. 컨테이너 기술의 핵심",
+          "lectures": [
+            {
+              "id": "lec_7_1_1",
+              "title": "Docker 이미지 최적화 빌드",
+              "duration": "40:00",
+              "type": "video"
+            },
+            {
+              "id": "lec_7_1_2",
+              "title": "K8s 클러스터 환경 구성 맛보기",
+              "duration": "50:00",
+              "type": "video"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "enrollments": [
+    {
+      "userId": "user_1",
+      "courseId": "course_1",
+      "enrolledAt": "2026-04-06T19:12:50.495Z",
+      "progress": {
+        "completedLectures": [
+          "lec_1_1_1"
+        ]
+      }
+    },
+    {
+      "userId": "user_1",
+      "courseId": "course_2",
+      "enrolledAt": "2026-04-01T19:12:50.501Z",
+      "progress": {
+        "completedLectures": []
+      }
+    }
+  ]
+}
