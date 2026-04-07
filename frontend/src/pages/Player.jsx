@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ChevronLeft, PlayCircle, CheckCircle2, Circle, MessageSquare, FileText, ChevronDown, ChevronUp } from 'lucide-react';
+import { ChevronLeft, PlayCircle, CheckCircle2, Circle, MessageSquare, FileText, ChevronDown, ChevronUp, Menu } from 'lucide-react';
 
 export default function Player() {
   const { courseId } = useParams();
@@ -10,6 +10,8 @@ export default function Player() {
   const [currentLecture, setCurrentLecture] = useState(null);
   const [activeTab, setActiveTab] = useState('note');
   const [expandedSections, setExpandedSections] = useState({});
+  const [activeSidebarTab, setActiveSidebarTab] = useState('curriculum');
+  const [memoText, setMemoText] = useState('');
 
   useEffect(() => {
     const userId = localStorage.getItem('userId');
@@ -42,6 +44,21 @@ export default function Player() {
       }
     });
   }, [courseId]);
+
+  useEffect(() => {
+    if (currentLecture && currentLecture.id) {
+      const storedMemo = localStorage.getItem(`memo_${currentLecture.id}`);
+      setMemoText(storedMemo || '');
+    }
+  }, [currentLecture]);
+
+  const handleMemoChange = (e) => {
+    const text = e.target.value;
+    setMemoText(text);
+    if (currentLecture && currentLecture.id) {
+      localStorage.setItem(`memo_${currentLecture.id}`, text);
+    }
+  };
 
   const toggleSection = (secId) => {
     setExpandedSections(prev => ({ ...prev, [secId]: !prev[secId] }));
@@ -177,68 +194,110 @@ export default function Player() {
             </div>
          </div>
 
-         {/* Right Sidebar: Curriculum Accordions */}
+         {/* Right Sidebar: Curriculum Accordions and Memo */}
          <div className="w-80 md:w-96 bg-white border-l border-slate-200 flex flex-col shadow-xl z-20">
-            <div className="p-4 border-b border-slate-100 bg-slate-50 shrink-0">
-               <h3 className="font-bold text-slate-800 text-base">커리큘럼</h3>
-               <div className="mt-2 w-full bg-slate-200 rounded-full h-1.5 overflow-hidden">
-                 <div className="bg-primary-500 h-1.5 rounded-full" style={{ width: `${(completedSet.size / (course.curriculum.reduce((acc, sec) => acc + sec.lectures.length, 0) || 1)) * 100}%`}}></div>
-               </div>
-               <p className="text-xs text-slate-500 mt-1 text-right">{completedSet.size} / {course.curriculum.reduce((acc, sec) => acc + sec.lectures.length, 0)} 완료</p>
-            </div>
             
-            <div className="flex-1 overflow-y-auto">
-               {course.curriculum.map(sec => (
-                 <div key={sec.id} className="border-b border-slate-100">
-                    <button 
-                      onClick={() => toggleSection(sec.id)}
-                      className="w-full px-4 py-3 flex items-center justify-between text-left bg-white hover:bg-slate-50 transition-colors"
-                    >
-                       <span className="font-semibold text-sm text-slate-800 flex-1">{sec.title}</span>
-                       <span className="text-slate-400 ml-2">
-                         {expandedSections[sec.id] ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                       </span>
-                    </button>
-                    
-                    {expandedSections[sec.id] && (
-                       <div className="bg-slate-50/50 pb-2">
-                         {sec.lectures.map(lec => {
-                           const isCompleted = completedSet.has(lec.id);
-                           const isActive = currentLecture?.id === lec.id;
-                           
-                           return (
-                             <button 
-                               key={lec.id}
-                               onClick={() => setCurrentLecture(lec)}
-                               className={`w-full text-left px-5 py-2.5 flex items-start gap-3 transition-colors ${isActive ? 'bg-primary-50/50' : 'hover:bg-white'}`}
-                             >
-                               <div className="mt-0.5">
-                                 {isCompleted ? (
-                                   <CheckCircle2 size={16} className="text-green-500 fill-green-50" />
-                                 ) : isActive ? (
-                                   <PlayCircle size={16} className="text-primary-500" />
-                                 ) : (
-                                   <Circle size={16} className="text-slate-300" />
-                                 )}
-                               </div>
-                               <div className="flex-1 min-w-0">
-                                 <p className={`text-sm leading-tight ${isActive ? 'font-semibold text-primary-700' : 'text-slate-700'} ${isCompleted && !isActive ? 'text-slate-500' : ''}`}>
-                                   {lec.title}
-                                 </p>
-                                 <p className="text-xs text-slate-400 mt-1 flex items-center gap-1">
-                                    {isActive && <span className="text-primary-500 font-medium">재생 중</span>}
-                                    {isActive && <span className="text-slate-300">•</span>}
-                                    {lec.duration}
-                                 </p>
-                               </div>
-                             </button>
-                           );
-                         })}
-                       </div>
-                    )}
-                 </div>
-               ))}
-            </div>
+            {activeSidebarTab === 'curriculum' ? (
+              <div className="flex-1 flex flex-col min-h-0">
+                <div className="p-4 border-b border-slate-100 bg-slate-50 shrink-0">
+                   <h3 className="font-bold text-slate-800 text-base">커리큘럼</h3>
+                   <div className="mt-2 w-full bg-slate-200 rounded-full h-1.5 overflow-hidden">
+                     <div className="bg-primary-500 h-1.5 rounded-full transition-all duration-500" style={{ width: `${(completedSet.size / (course.curriculum.reduce((acc, sec) => acc + sec.lectures.length, 0) || 1)) * 100}%`}}></div>
+                   </div>
+                   <p className="text-xs text-slate-500 mt-2 text-right">{completedSet.size} / {course.curriculum.reduce((acc, sec) => acc + sec.lectures.length, 0)} 완료</p>
+                </div>
+                
+                <div className="flex-1 overflow-y-auto">
+                   {course.curriculum.map(sec => (
+                     <div key={sec.id} className="border-b border-slate-100">
+                        <button 
+                          onClick={() => toggleSection(sec.id)}
+                          className="w-full px-4 py-3 flex items-center justify-between text-left bg-white hover:bg-slate-50 transition-colors"
+                        >
+                           <span className="font-semibold text-sm text-slate-800 flex-1">{sec.title}</span>
+                           <span className="text-slate-400 ml-2">
+                             {expandedSections[sec.id] ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                           </span>
+                        </button>
+                        
+                        {expandedSections[sec.id] && (
+                           <div className="bg-slate-50/50 pb-2">
+                             {sec.lectures.map(lec => {
+                               const isCompleted = completedSet.has(lec.id);
+                               const isActive = currentLecture?.id === lec.id;
+                               
+                               return (
+                                 <div 
+                                   key={lec.id}
+                                   className={`w-full px-4 py-2.5 flex items-center gap-2 transition-colors ${isActive ? 'bg-primary-50/50' : 'hover:bg-white'}`}
+                                 >
+                                   <button 
+                                     onClick={() => setCurrentLecture(lec)}
+                                     className="flex-1 min-w-0 flex items-start gap-3 text-left"
+                                   >
+                                     <div className="mt-0.5 shrink-0">
+                                       {isCompleted ? (
+                                         <CheckCircle2 size={16} className="text-green-500 fill-green-50" />
+                                       ) : isActive ? (
+                                         <PlayCircle size={16} className="text-primary-500" />
+                                       ) : (
+                                         <Circle size={16} className="text-slate-300" />
+                                       )}
+                                     </div>
+                                     <div className="flex-1 min-w-0">
+                                       <p className={`text-sm leading-tight ${isActive ? 'font-semibold text-primary-700' : 'text-slate-700'} ${isCompleted && !isActive ? 'text-slate-500' : ''}`}>
+                                         {lec.title}
+                                       </p>
+                                       <p className="text-xs text-slate-400 mt-1 flex items-center gap-1">
+                                          {isActive && <span className="text-primary-500 font-medium">재생 중</span>}
+                                          {isActive && <span className="text-slate-300">•</span>}
+                                          {lec.duration}
+                                       </p>
+                                     </div>
+                                   </button>
+                                   <button 
+                                     onClick={() => { setCurrentLecture(lec); setActiveSidebarTab('memo'); }}
+                                     className="text-slate-400 hover:text-primary-600 p-2 hover:bg-primary-100 rounded-md transition-colors shrink-0"
+                                     title="이 강의 메모장 열기"
+                                   >
+                                     <Menu size={16} />
+                                   </button>
+                                 </div>
+                               );
+                             })}
+                           </div>
+                        )}
+                     </div>
+                   ))}
+                </div>
+              </div>
+            ) : (
+              <div className="flex-1 flex flex-col p-4 bg-slate-50 relative min-h-0 shadow-inner">
+                <div className="flex items-center gap-2 mb-4 shrink-0 pb-3 border-b border-slate-200">
+                   <button 
+                     onClick={() => setActiveSidebarTab('curriculum')}
+                     className="text-slate-500 hover:text-slate-800 transition-colors p-1.5 -ml-1.5 rounded-md hover:bg-slate-200 flex items-center justify-center shrink-0"
+                   >
+                     <ChevronLeft size={20} />
+                   </button>
+                   <h3 className="font-bold text-slate-800 text-base">커리큘럼으로 돌아가기</h3>
+                </div>
+                <div className="flex items-center justify-between mb-3 shrink-0">
+                   <h4 className="font-bold text-slate-800 text-sm flex items-center gap-2 line-clamp-1">
+                     <FileText size={16} className="text-primary-600 shrink-0"/> 
+                     <span className="line-clamp-1 text-xs">{currentLecture ? currentLecture.title : '강의 메모'}</span>
+                   </h4>
+                   {memoText && <span className="text-[10px] text-slate-400 font-medium bg-white px-2 py-1 rounded shadow-sm border border-slate-100 flex-shrink-0 animate-pulse">자동 저장됨</span>}
+                </div>
+                <textarea 
+                  value={memoText}
+                  onChange={handleMemoChange}
+                  placeholder={currentLecture ? "여기에 현재 강의에 대한 메모를 작성하세요.\n작성된 내용은 브라우저에 자동 저장됩니다.\n\n예: 중요한 단축키 정리, 꼭 알아둬야 할 개념 요약 등" : "강의를 선택해주세요."}
+                  disabled={!currentLecture}
+                  className="flex-1 w-full p-4 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary-500/50 resize-none text-sm leading-relaxed text-slate-700 shadow-inner bg-white"
+                ></textarea>
+              </div>
+            )}
          </div>
       </div>
     </div>

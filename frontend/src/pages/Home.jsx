@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { PlayCircle, Clock } from 'lucide-react';
 
 export default function Home() {
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [searchParams] = useSearchParams();
+  const query = searchParams.get('q') || '';
 
   useEffect(() => {
     fetch('http://localhost:3000/api/courses')
@@ -27,7 +29,7 @@ export default function Home() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-        {courses.map(course => (
+        {courses.filter(c => c.title.toLowerCase().includes(query.toLowerCase()) || c.description.toLowerCase().includes(query.toLowerCase())).map(course => (
           <Link key={course.id} to={`/course/${course.id}`} className="group block">
             <div className="card overflow-hidden flex flex-col h-full hover:-translate-y-1 transition-transform duration-300">
               <div className="relative aspect-video overflow-hidden bg-slate-100">

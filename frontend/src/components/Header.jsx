@@ -1,9 +1,31 @@
-import { Link, useLocation } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { BookOpen, User, LogOut } from 'lucide-react';
 
 export default function Header() {
   const location = useLocation();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  
+  // URL의 q 파라미터로 초기화하되, 입력은 로컬 state로 즉각 관리해 한글 겹침 방지
+  const [localQuery, setLocalQuery] = useState(searchParams.get('q') || '');
   const isPlayer = location.pathname.startsWith('/player');
+
+  useEffect(() => {
+    // 외부 요소(뒤로가기 등)로 URL이 바뀔 때만 로컬 state 동기화
+    setLocalQuery(searchParams.get('q') || '');
+  }, [searchParams]);
+
+  const handleGlobalSearch = (e) => {
+    const val = e.target.value;
+    setLocalQuery(val);
+    
+    if (val) {
+      navigate(`/?q=${encodeURIComponent(val)}`, { replace: true });
+    } else {
+      navigate(`/`, { replace: true });
+    }
+  };
 
   const userId = localStorage.getItem('userId');
   const userRole = localStorage.getItem('userRole');
@@ -36,6 +58,8 @@ export default function Header() {
           <div className="relative">
             <input 
               type="text" 
+              value={localQuery}
+              onChange={handleGlobalSearch}
               placeholder="배우고 싶은 지식을 검색해보세요" 
               className="w-full bg-slate-100 rounded-full px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-shadow"
             />

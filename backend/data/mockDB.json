@@ -278,7 +278,11 @@
       "enrolledAt": "2026-04-06T19:12:50.495Z",
       "progress": {
         "completedLectures": [
-          "lec_1_1_1"
+          "lec_1_1_1",
+          "lec_1_2_2",
+          "lec_1_1_2",
+          "lec_1_1_3",
+          "lec_1_2_1"
         ]
       }
     },
@@ -286,6 +290,16 @@
       "userId": "user_1",
       "courseId": "course_2",
       "enrolledAt": "2026-04-01T19:12:50.501Z",
+      "progress": {
+        "completedLectures": [
+          "lec_2_1_1"
+        ]
+      }
+    },
+    {
+      "userId": "user_1",
+      "courseId": "course_3",
+      "enrolledAt": "2026-04-07T11:35:42.823Z",
       "progress": {
         "completedLectures": []
       }
