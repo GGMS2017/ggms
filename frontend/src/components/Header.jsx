@@ -81,7 +81,9 @@ export default function Header() {
               
               <div className="flex items-center gap-2 border-l border-slate-200 pl-4">
                 <div className="hidden sm:block text-right">
-                  <p className="text-xs font-bold text-slate-800">{userName}</p>
+                  <Link to="/mypage" className="text-xs font-bold text-slate-800 hover:text-primary-600 hover:underline transition-all block">
+                    {userName}
+                  </Link>
                   <p className="text-[10px] text-slate-400 capitalize">{userRole}</p>
                 </div>
                 <button onClick={handleLogout} className="btn-outline flex items-center gap-2 text-sm px-3 py-1.5 ml-2 border-slate-200 text-slate-500 hover:text-red-500 hover:border-red-200 hover:bg-red-50">

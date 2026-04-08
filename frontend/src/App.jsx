@@ -6,7 +6,7 @@ import Auth from './pages/Auth';
 import Dashboard from './pages/Dashboard';
 import Player from './pages/Player';
 import AdminDashboard from './pages/AdminDashboard'; // 새로 추가된 컴포넌트
-
+import MyPage from './pages/MyPage';
 function App() {
   return (
     <Router>
@@ -20,6 +20,7 @@ function App() {
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/admin" element={<AdminDashboard />} /> 
             <Route path="/player/:courseId" element={<Player />} />
+            <Route path="/mypage" element={<MyPage />} />
           </Routes>
         </main>
       </div>

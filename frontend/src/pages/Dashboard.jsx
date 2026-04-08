@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { Play, Star, Search } from 'lucide-react';
 
 export default function Dashboard() {
+  const location = useLocation();
   const [enrollments, setEnrollments] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('studying');
+  const [activeTab, setActiveTab] = useState(location.state?.tab || 'studying');
   const [dashboardSearchQuery, setDashboardSearchQuery] = useState('');
   const [favorites, setFavorites] = useState(() => {
     const saved = localStorage.getItem('courseFavorites');
@@ -33,6 +34,12 @@ export default function Dashboard() {
         setLoading(false);
       });
   }, []);
+
+  useEffect(() => {
+    if (location.state?.tab) {
+      setActiveTab(location.state.tab);
+    }
+  }, [location.state?.tab]);
 
   if (loading) return <div className="p-10 text-center text-slate-500">불러오는 중...</div>;
 

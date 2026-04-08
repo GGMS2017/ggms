@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ChevronLeft, PlayCircle, CheckCircle2, Circle, MessageSquare, FileText, ChevronDown, ChevronUp, Menu } from 'lucide-react';
+import { ChevronLeft, ChevronRight, PlayCircle, CheckCircle2, Circle, MessageSquare, FileText, ChevronDown, ChevronUp, Menu, NotebookPen } from 'lucide-react';
 
 export default function Player() {
   const { courseId } = useParams();
@@ -12,6 +12,8 @@ export default function Player() {
   const [expandedSections, setExpandedSections] = useState({});
   const [activeSidebarTab, setActiveSidebarTab] = useState('curriculum');
   const [memoText, setMemoText] = useState('');
+  const [isBottomExpanded, setIsBottomExpanded] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
   useEffect(() => {
     const userId = localStorage.getItem('userId');
@@ -111,10 +113,10 @@ export default function Player() {
         </div>
       </header>
 
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex overflow-hidden relative">
          {/* Left Main Area: Video + Tabs */}
-         <div className="flex-1 flex flex-col bg-slate-900 relative">
-            <div className="flex-shrink-0 w-full aspect-video bg-black flex flex-col items-center justify-center relative group">
+         <div className="flex-1 flex flex-col bg-slate-900 relative min-w-0 transition-all duration-300">
+            <div className={`w-full ${isBottomExpanded ? 'h-[25vh] shrink-0' : 'flex-1'} bg-black flex flex-col items-center justify-center relative group transition-all duration-500 overflow-hidden`}>
                {/* Video Mockup Content */}
                <div className="absolute top-4 left-4 text-white/50 text-sm font-medium z-10">
                  {currentLecture?.title}
@@ -134,8 +136,18 @@ export default function Player() {
             </div>
 
             {/* Bottom Tabs & Content */}
-            <div className="flex-1 flex flex-col min-h-0 bg-white text-slate-800 rounded-tl-xl mt-2 overflow-hidden shadow-[0_-5px_15px_rgba(0,0,0,0.1)]">
-               <div className="flex border-b border-slate-200 px-2 shrink-0">
+            <div className={`${isBottomExpanded ? 'flex-1' : 'shrink-0'} flex flex-col min-h-0 bg-white text-slate-800 rounded-tl-xl mt-2 overflow-hidden shadow-[0_-5px_15px_rgba(0,0,0,0.1)] relative transition-all duration-500`}>
+               
+               {/* Expand Handle */}
+               <button 
+                 onClick={() => setIsBottomExpanded(!isBottomExpanded)}
+                 className="absolute top-0 inset-x-0 h-6 flex items-center justify-center bg-slate-100 hover:bg-slate-200 text-slate-400 hover:text-slate-600 transition-colors z-20 cursor-ns-resize border-b border-slate-200"
+                 aria-label="노트 및 질문 탭 크기 조절"
+               >
+                 {isBottomExpanded ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
+               </button>
+
+               <div className="flex border-b border-slate-200 px-2 shrink-0 pt-6">
                   <button 
                     onClick={() => setActiveTab('note')}
                     className={`px-6 py-4 font-medium text-sm flex items-center gap-2 border-b-2 transition-colors ${activeTab === 'note' ? 'border-primary-500 text-primary-600' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
@@ -159,7 +171,8 @@ export default function Player() {
                   </div>
                </div>
                
-               <div className="flex-1 overflow-y-auto p-6 bg-slate-50 relative">
+               {isBottomExpanded && (
+                 <div className="flex-1 overflow-y-auto p-6 bg-slate-50 relative">
                   {activeTab === 'note' && (
                     <div className="prose prose-slate max-w-none">
                       <h3 className="text-xl font-bold mb-4">{currentLecture?.title}</h3>
@@ -190,17 +203,33 @@ export default function Player() {
                       </div>
                     </div>
                   )}
-               </div>
+                 </div>
+               )}
             </div>
          </div>
 
+            {/* Right Sidebar Toggle (Floating when closed) */}
+            {!isSidebarOpen && (
+              <button 
+                onClick={() => setIsSidebarOpen(true)}
+                className="absolute right-0 top-1/2 -translate-y-1/2 bg-white p-2 rounded-l-xl shadow-lg border border-r-0 border-slate-200 hover:bg-slate-50 transition-transform shrink-0 z-40 text-slate-500 hover:text-primary-600"
+              >
+                 <Menu size={20} />
+              </button>
+            )}
+            
          {/* Right Sidebar: Curriculum Accordions and Memo */}
-         <div className="w-80 md:w-96 bg-white border-l border-slate-200 flex flex-col shadow-xl z-20">
+         <div className={`${isSidebarOpen ? 'w-80 md:w-96' : 'w-0 border-none'} bg-white border-l border-slate-200 flex flex-col shadow-xl z-20 transition-all duration-300 overflow-hidden shrink-0`}>
             
             {activeSidebarTab === 'curriculum' ? (
-              <div className="flex-1 flex flex-col min-h-0">
-                <div className="p-4 border-b border-slate-100 bg-slate-50 shrink-0">
+              <div className="w-80 md:w-96 flex-1 flex flex-col min-h-0">
+                <div className="flex items-center justify-between p-4 border-b border-slate-100 bg-slate-50 shrink-0">
                    <h3 className="font-bold text-slate-800 text-base">커리큘럼</h3>
+                   <button onClick={() => setIsSidebarOpen(false)} className="p-1 hover:bg-slate-200 rounded text-slate-500 hover:text-slate-800 transition-colors">
+                     <ChevronRight size={18} />
+                   </button>
+                </div>
+                <div className="px-4 pb-4 border-b border-slate-100 bg-slate-50 shrink-0">
                    <div className="mt-2 w-full bg-slate-200 rounded-full h-1.5 overflow-hidden">
                      <div className="bg-primary-500 h-1.5 rounded-full transition-all duration-500" style={{ width: `${(completedSet.size / (course.curriculum.reduce((acc, sec) => acc + sec.lectures.length, 0) || 1)) * 100}%`}}></div>
                    </div>
@@ -260,7 +289,7 @@ export default function Player() {
                                      className="text-slate-400 hover:text-primary-600 p-2 hover:bg-primary-100 rounded-md transition-colors shrink-0"
                                      title="이 강의 메모장 열기"
                                    >
-                                     <Menu size={16} />
+                                     <NotebookPen size={16} />
                                    </button>
                                  </div>
                                );
