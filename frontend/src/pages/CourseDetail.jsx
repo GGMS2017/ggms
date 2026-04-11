@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { PlayCircle, CheckCircle, ChevronDown, ChevronUp } from 'lucide-react';
+import api from '../api/axios';
+import { toast } from 'react-toastify';
 
 export default function CourseDetail() {
   const { id } = useParams();
@@ -10,9 +12,9 @@ export default function CourseDetail() {
   const [expandedSection, setExpandedSection] = useState("section_1_1");
 
   useEffect(() => {
-    fetch(`http://localhost:3000/api/courses/${id}`)
-      .then(res => res.json())
-      .then(data => {
+    api.get(`/courses/${id}`)
+      .then(res => {
+        const data = res.data;
         setCourse(data);
         if(data.curriculum && data.curriculum.length > 0) {
           setExpandedSection(data.curriculum[0].id);
@@ -22,22 +24,20 @@ export default function CourseDetail() {
   }, [id]);
 
   const handleEnroll = async () => {
-    const userId = localStorage.getItem('userId');
     try {
-      const res = await fetch('http://localhost:3000/api/enroll', {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': userId || ''
-        },
-        body: JSON.stringify({ courseId: id })
-      });
-      const data = await res.json();
-      if(data.success || data.error === 'Already enrolled') {
+      const res = await api.post('/enroll', { courseId: id });
+      if(res.data.success) {
+        toast.success('수강 신청이 완료되었습니다!');
         navigate('/dashboard');
       }
     } catch(err) {
-      console.error(err);
+      if (err.response?.data?.error === 'Already enrolled') {
+        toast.info('이미 수강 중인 과정입니다.');
+        navigate('/dashboard');
+      } else {
+        toast.error('수강 신청에 실패했습니다.');
+        console.error(err);
+      }
     }
   };
 

@@ -1,15 +1,11 @@
-import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { User, Mail, Bell, Lock, BookOpen, Clock, Award } from 'lucide-react';
+import useAuthStore from '../store/useAuthStore';
 
 export default function MyPage() {
-  const [userName, setUserName] = useState('');
-  const [userRole, setUserRole] = useState('');
-
-  useEffect(() => {
-    setUserName(localStorage.getItem('userName') || '사용자');
-    setUserRole(localStorage.getItem('userRole') || 'student');
-  }, []);
+  const { user } = useAuthStore();
+  const userName = user?.name || '사용자';
+  const userRole = user?.role || 'student';
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-8">

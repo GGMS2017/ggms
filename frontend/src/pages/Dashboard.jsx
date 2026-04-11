@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Play, Star, Search } from 'lucide-react';
+import api from '../api/axios';
 
 export default function Dashboard() {
   const location = useLocation();
@@ -24,13 +25,13 @@ export default function Dashboard() {
   };
 
   useEffect(() => {
-    const userId = localStorage.getItem('userId');
-    fetch('http://localhost:3000/api/enrollments', {
-      headers: { 'Authorization': userId || '' }
-    })
-      .then(res => res.json())
-      .then(data => {
-        setEnrollments(data);
+    api.get('/enrollments')
+      .then(res => {
+        setEnrollments(res.data);
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error(err);
         setLoading(false);
       });
   }, []);

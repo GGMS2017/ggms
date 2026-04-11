@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { PlayCircle, Clock } from 'lucide-react';
+import api from '../api/axios';
 
 export default function Home() {
   const [courses, setCourses] = useState([]);
@@ -9,10 +10,13 @@ export default function Home() {
   const query = searchParams.get('q') || '';
 
   useEffect(() => {
-    fetch('http://localhost:3000/api/courses')
-      .then(res => res.json())
-      .then(data => {
-        setCourses(data);
+    api.get('/courses')
+      .then(res => {
+        setCourses(res.data);
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error(err);
         setLoading(false);
       });
   }, []);

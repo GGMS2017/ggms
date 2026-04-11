@@ -1,6 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, PlayCircle, CheckCircle2, Circle, MessageSquare, FileText, ChevronDown, ChevronUp, Menu, NotebookPen } from 'lucide-react';
+import api from '../api/axios';
+import { toast } from 'react-toastify';
+import useAuthStore from '../store/useAuthStore';
 
 export default function Player() {
   const { courseId } = useParams();
@@ -15,23 +18,36 @@ export default function Player() {
   const [isBottomExpanded, setIsBottomExpanded] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
+  // Video Progress Tracking State
+  const [currentTime, setCurrentTime] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const progressTimerRef = useRef(null);
+  const lastSavedTimeRef = useRef(0);
+
+  // Intervention & AI Risk Tracking State
+  const { user } = useAuthStore();
+  const [seekCount, setSeekCount] = useState(0);
+  const [showQuiz, setShowQuiz] = useState(false);
+  const [quizAnswered, setQuizAnswered] = useState(false);
+
   useEffect(() => {
-    const userId = localStorage.getItem('userId');
     Promise.all([
-      fetch(`http://localhost:3000/api/courses/${courseId}`).then(res => res.json()),
-      fetch('http://localhost:3000/api/enrollments', { headers: { 'Authorization': userId || '' } }).then(res => res.json())
-    ]).then(([courseData, enrollmentsData]) => {
+      api.get(`/courses/${courseId}`),
+      api.get('/enrollments')
+    ]).then(([courseRes, enrollmentsRes]) => {
+      const courseData = courseRes.data;
+      const enrollmentsData = enrollmentsRes.data;
+      
       setCourse(courseData);
       
       const myEnroll = enrollmentsData.find(e => e.courseId === courseId);
       setEnrollment(myEnroll);
 
-      // Section Toggle 초기 상태 (첫번째 섹션 오픈)
       if(courseData.curriculum && courseData.curriculum.length > 0) {
         setExpandedSections({ [courseData.curriculum[0].id]: true });
-        // 이어보기 로직 (완료되지 않은 첫번째 강의 선택, 혹은 그냥 첫 강의)
+        
         const allCompleted = myEnroll ? myEnroll.progress.completedLectures : [];
-        let cur = courseData.curriculum[0].lectures[0]; // fallback
+        let cur = courseData.curriculum[0].lectures[0];
         
         courseData.curriculum.some(sec => {
           const uncompleted = sec.lectures.find(l => !allCompleted.includes(l.id));
@@ -44,6 +60,21 @@ export default function Player() {
         });
         setCurrentLecture(cur);
       }
+    }).catch((err) => {
+      console.error(err);
+      toast.error('강의 정보를 불러오는데 실패했습니다.');
+    });
+
+    // 동기부여 Toast 알림 (마운트 시점 1회)
+    toast('💪 매일 1시간 학습 목표까지 20분 남았어요! 끝까지 화이팅!', {
+       position: "bottom-left",
+       autoClose: 5000,
+       hideProgressBar: false,
+       closeOnClick: true,
+       pauseOnHover: true,
+       draggable: true,
+       theme: "light",
+       icon: "🔥"
     });
   }, [courseId]);
 
@@ -51,8 +82,22 @@ export default function Player() {
     if (currentLecture && currentLecture.id) {
       const storedMemo = localStorage.getItem(`memo_${currentLecture.id}`);
       setMemoText(storedMemo || '');
+
+      // 이어보기 셋팅 (저장된 시간이 있다면 가져옴)
+      if (enrollment && enrollment.progress && enrollment.progress.positions) {
+        const savedTime = enrollment.progress.positions[currentLecture.id] || 0;
+        setCurrentTime(savedTime);
+        lastSavedTimeRef.current = savedTime;
+        if (savedTime > 0) {
+          toast.info(`이전 시청 기록(${savedTime}초)부터 이어봅니다.`, { autoClose: 2000, position: "top-center" });
+        }
+      } else {
+        setCurrentTime(0);
+        lastSavedTimeRef.current = 0;
+      }
+      setIsPlaying(false);
     }
-  }, [currentLecture]);
+  }, [currentLecture, enrollment]);
 
   const handleMemoChange = (e) => {
     const text = e.target.value;
@@ -67,30 +112,94 @@ export default function Player() {
   };
 
   const markAsComplete = async () => {
-    const userId = localStorage.getItem('userId');
     if(!currentLecture) return;
     try {
-      const res = await fetch(`http://localhost:3000/api/enrollments/${courseId}/complete`, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': userId || ''
-        },
-        body: JSON.stringify({ lectureId: currentLecture.id })
-      });
-      const data = await res.json();
-      if(data.success) {
+      const res = await api.post(`/enrollments/${courseId}/complete`, { lectureId: currentLecture.id });
+      if(res.data.success) {
         setEnrollment(prev => ({
           ...prev,
           progress: {
             ...prev.progress,
-            completedLectures: data.completedLectures
+            completedLectures: res.data.completedLectures
           }
         }));
+        toast.success('수강을 완료했습니다!');
       }
     } catch(err) {
       console.error(err);
+      toast.error('수강 완료 처리에 실패했습니다.');
     }
+  };
+
+  // Video Progress Tracker (Simulation)
+  useEffect(() => {
+    let intervalId;
+    if (isPlaying) {
+      intervalId = setInterval(() => {
+        setCurrentTime(prev => {
+          const newTime = prev + 1;
+          
+          // Throttling: 매 10초마다 서버에 진행률 저장
+          if (newTime - lastSavedTimeRef.current >= 10) {
+            saveProgress(newTime);
+            lastSavedTimeRef.current = newTime;
+          }
+          return newTime;
+        });
+      }, 1000);
+    }
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [isPlaying, currentLecture]);
+
+  const saveProgress = async (timeToSave) => {
+    if (!currentLecture) return;
+    try {
+      await api.post(`/enrollments/${courseId}/progress`, {
+        lectureId: currentLecture.id,
+        currentTime: timeToSave
+      });
+      console.log('Saved time: ', timeToSave);
+    } catch(err) {
+      console.error('Progress save error', err);
+    }
+  };
+
+  const togglePlay = () => {
+    const nextState = !isPlaying;
+    setIsPlaying(nextState);
+    saveEvent(nextState ? 'play' : 'pause');
+  };
+
+  const saveEvent = async (eventType, details = '') => {
+    if (!currentLecture) return;
+    try {
+      await api.post(`/enrollments/${courseId}/events`, {
+        eventType,
+        details
+      });
+    } catch(err) {
+      console.error('Event save error', err);
+    }
+  };
+
+  const handleSeekBackward = () => {
+    setCurrentTime(prev => Math.max(0, prev - 10));
+    saveEvent('seek_backward', 'rewind 10s');
+    setSeekCount(prev => {
+       const newCount = prev + 1;
+       if (newCount >= 3 && !quizAnswered) { // 3회 이상 되감기 시 집중력 저하로 간주
+          setShowQuiz(true);
+          setIsPlaying(false);
+       }
+       return newCount;
+    });
+  };
+
+  const handleSpeedUp = () => {
+    saveEvent('speed_up', 'Speed increased');
+    toast.info('배속 재생이 설정되었습니다.', { autoClose: 1000 });
   };
 
   if(!course) return <div className="p-10 text-center">Loading Course Player...</div>;
@@ -108,8 +217,8 @@ export default function Player() {
           </Link>
           <span className="font-semibold text-sm line-clamp-1">{course.title}</span>
         </div>
-        <div className="text-xs text-slate-400 font-medium">
-           학습 진행 중
+        <div className="text-xs text-slate-400 font-medium font-mono">
+           {Math.floor(currentTime / 60)}:{(currentTime % 60).toString().padStart(2, '0')} 학습 완료
         </div>
       </header>
 
@@ -122,17 +231,48 @@ export default function Player() {
                  {currentLecture?.title}
                </div>
 
-               <button className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center text-white hover:bg-primary-500/80 hover:scale-110 transition-all backdrop-blur-sm z-10">
-                  <PlayCircle size={32} />
-               </button>
-               <p className="mt-4 text-slate-400 text-sm">영상 플레이어 목업 (실제 영상 미포함)</p>
+               <div className="flex items-center gap-6 z-10">
+                  <button onClick={handleSeekBackward} className="w-12 h-12 bg-white/10 rounded-full flex items-center justify-center text-white hover:bg-white/20 transition-all backdrop-blur-sm" title="10초 되감기">
+                     <span className="text-xs font-bold">-10s</span>
+                  </button>
+                  <button onClick={togglePlay} className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center text-white hover:bg-primary-500/80 hover:scale-110 transition-all backdrop-blur-sm">
+                     {isPlaying ? <span className="font-bold">Pause</span> : <PlayCircle size={32} />}
+                  </button>
+                  <button onClick={handleSpeedUp} className="w-12 h-12 bg-white/10 rounded-full flex items-center justify-center text-white hover:bg-white/20 transition-all backdrop-blur-sm" title="배속 설정">
+                     <span className="text-xs font-bold">1.5x</span>
+                  </button>
+               </div>
+               
+               <p className="mt-6 text-slate-400 text-sm">
+                  {isPlaying ? '재생 중...' : '클릭하여 시뮬레이터 재생'}
+               </p>
                
                {/* Progress Bar UI mock */}
-               <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-white/20 group-hover:h-2 transition-all">
-                  <div className="bg-primary-500 w-1/3 h-full relative">
+               <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-white/20 group-hover:h-2 transition-all cursor-pointer">
+                  <div className="bg-primary-500 h-full relative transition-all duration-1000" style={{ width: `${(currentTime / 300) * 100}%` }}>
                      <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow scale-0 group-hover:scale-100 transition-transform"></div>
                   </div>
                </div>
+
+               {/* Intervention Quiz Popup overlay */}
+               {showQuiz && (
+                  <div className="absolute inset-0 bg-slate-900/90 backdrop-blur-sm z-50 flex flex-col items-center justify-center p-6">
+                     <div className="bg-white text-slate-800 p-8 rounded-2xl max-w-sm w-full text-center shadow-2xl animate-in slide-in-from-bottom-10 fade-in duration-300">
+                        <div className="w-16 h-16 bg-amber-100 text-amber-500 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl">☕</div>
+                        <h3 className="text-xl font-bold mb-2">잠깐 환기할까요?</h3>
+                        <p className="text-slate-500 text-sm mb-6">동일한 구간을 반복해서 시청하셨네요.<br/>집중력이 약간 떨어진 것 같아요. 간단한 퀴즈를 풀고 다시 집중해볼까요?</p>
+                        
+                        <div className="space-y-3">
+                           <button onClick={() => { setShowQuiz(false); setQuizAnswered(true); togglePlay(); }} className="w-full py-3 bg-slate-100 hover:bg-primary-50 hover:text-primary-600 rounded-xl font-medium transition-colors text-sm border border-transparent hover:border-primary-200">
+                              이해했어요! 이어서 볼게요.
+                           </button>
+                           <button onClick={() => { setShowQuiz(false); setQuizAnswered(true); }} className="w-full py-3 bg-slate-100 hover:bg-slate-200 rounded-xl font-medium transition-colors text-sm border border-transparent">
+                              아니요, 잠시 쉴게요.
+                           </button>
+                        </div>
+                     </div>
+                  </div>
+               )}
             </div>
 
             {/* Bottom Tabs & Content */}

@@ -1,41 +1,38 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BookOpen } from 'lucide-react';
+import useAuthStore from '../store/useAuthStore';
+import api from '../api/axios';
+import { toast } from 'react-toastify';
 
 export default function Auth() {
   const [email, setEmail] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const navigate = useNavigate();
+  const loginStore = useAuthStore(state => state.login);
 
   const handleLogin = async (e) => {
     e.preventDefault();
     setErrorMsg('');
     try {
-      const res = await fetch('http://localhost:3000/api/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email })
-      });
-      const data = await res.json();
-      
-      if (data.success) {
-        localStorage.setItem('userId', data.user.id);
-        localStorage.setItem('userRole', data.user.role);
-        localStorage.setItem('userName', data.user.name);
+      const res = await api.post('/login', { email });
+      if (res.data.success) {
+        // Zustand store 저장
+        loginStore(res.data.user, res.data.token);
+        toast.success(`환영합니다, ${res.data.user.name}님!`);
         
         // 권한 분기
-        if (data.user.role === 'admin' || data.user.role === 'instructor') {
-          // 강사와 관리자는 바로 관리자화면으로 리다이렉트. 이후 Header 상태 업데이트를 위해 window.location.href 사용
-          window.location.href = '/admin';
+        if (res.data.user.role === 'admin' || res.data.user.role === 'instructor') {
+          navigate('/admin');
         } else {
-          window.location.href = '/dashboard';
+          navigate('/dashboard');
         }
-      } else {
-        setErrorMsg(data.error || '로그인에 실패했습니다.');
       }
     } catch(err) {
       console.error(err);
-      setErrorMsg('서버와 통신 중 에러가 발생했습니다.');
+      const message = err.response?.data?.error || '로그인에 실패했습니다.';
+      setErrorMsg(message);
+      toast.error(message);
     }
   };
 

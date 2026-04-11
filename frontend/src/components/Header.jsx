@@ -1,18 +1,19 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { BookOpen, User, LogOut } from 'lucide-react';
+import useAuthStore from '../store/useAuthStore';
 
 export default function Header() {
   const location = useLocation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   
-  // URL의 q 파라미터로 초기화하되, 입력은 로컬 state로 즉각 관리해 한글 겹침 방지
+  const { isAuthenticated, user, logout } = useAuthStore();
+
   const [localQuery, setLocalQuery] = useState(searchParams.get('q') || '');
   const isPlayer = location.pathname.startsWith('/player');
 
   useEffect(() => {
-    // 외부 요소(뒤로가기 등)로 URL이 바뀔 때만 로컬 state 동기화
     setLocalQuery(searchParams.get('q') || '');
   }, [searchParams]);
 
@@ -27,20 +28,14 @@ export default function Header() {
     }
   };
 
-  const userId = localStorage.getItem('userId');
-  const userRole = localStorage.getItem('userRole');
-  const userName = localStorage.getItem('userName');
-
   const handleLogout = () => {
-    localStorage.removeItem('userId');
-    localStorage.removeItem('userRole');
-    localStorage.removeItem('userName');
-    window.location.href = '/';
+    logout();
+    navigate('/');
   };
 
   if (isPlayer) return null;
 
-  const isAdminOrInstructor = userRole === 'admin' || userRole === 'instructor';
+  const isAdminOrInstructor = user?.role === 'admin' || user?.role === 'instructor';
 
   return (
     <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-slate-100 shadow-sm">
@@ -67,7 +62,7 @@ export default function Header() {
         </div>
 
         <div className="flex items-center gap-4">
-          {userId ? (
+          {isAuthenticated && user ? (
             <>
               {isAdminOrInstructor ? (
                 <Link to="/admin" className="text-sm font-bold text-red-500 hover:text-red-700 transition-colors hidden sm:block">
@@ -82,9 +77,9 @@ export default function Header() {
               <div className="flex items-center gap-2 border-l border-slate-200 pl-4">
                 <div className="hidden sm:block text-right">
                   <Link to="/mypage" className="text-xs font-bold text-slate-800 hover:text-primary-600 hover:underline transition-all block">
-                    {userName}
+                    {user.name}
                   </Link>
-                  <p className="text-[10px] text-slate-400 capitalize">{userRole}</p>
+                  <p className="text-[10px] text-slate-400 capitalize">{user.role}</p>
                 </div>
                 <button onClick={handleLogout} className="btn-outline flex items-center gap-2 text-sm px-3 py-1.5 ml-2 border-slate-200 text-slate-500 hover:text-red-500 hover:border-red-200 hover:bg-red-50">
                   <LogOut size={14} />
