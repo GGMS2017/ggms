@@ -198,8 +198,8 @@ app.post('/api/enrollments/:courseId/complete', authMiddleware, async (req, res)
       const user = await User.findOne({ id: userId });
       if (user) {
         earnedXP = 50;
-        user.set('xp', (user.get('xp') || 0) + earnedXP);
-        user.set('level', Math.floor(user.get('xp') / 100) + 1);
+        user.xp = (user.xp || 0) + earnedXP;
+        user.level = Math.floor(user.xp / 100) + 1;
         await user.save();
       }
     }
@@ -474,22 +474,22 @@ app.get('/api/gamification', authMiddleware, async (req, res) => {
     if (!currentUser) return res.status(404).json({ error: 'User not found' });
 
     const students = await User.find({ role: 'student', xp: { $gt: 0 } }).sort({ xp: -1 }).limit(5);
-    
+
     const rankedUsers = students.map((u, index) => ({
       rank: index + 1,
       id: u.id,
       name: u.name,
-      xp: u.get('xp') || 0,
-      level: u.get('level') || 1
+      xp: u.xp || 0,
+      level: u.level || 1
     }));
 
     res.json({
       success: true,
       myStats: {
-        xp: currentUser.get('xp') || 0,
-        level: currentUser.get('level') || 1,
-        streak: currentUser.get('streak') || 0,
-        badges: currentUser.get('badges') || []
+        xp: currentUser.xp || 0,
+        level: currentUser.level || 1,
+        streak: currentUser.streak || 0,
+        badges: currentUser.badges || []
       },
       leaderboard: rankedUsers
     });
