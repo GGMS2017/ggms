@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, PlayCircle, CheckCircle2, Circle, MessageSquare, FileText, ChevronDown, ChevronUp, Menu, NotebookPen } from 'lucide-react';
+import { ChevronLeft, ChevronRight, PlayCircle, CheckCircle2, Circle, MessageSquare, FileText, ChevronDown, ChevronUp, Menu, NotebookPen, Bot, Send, Code, Loader2 } from 'lucide-react';
 import api from '../api/axios';
 import { toast } from 'react-toastify';
 import useAuthStore from '../store/useAuthStore';
@@ -15,7 +15,7 @@ export default function Player() {
   const [expandedSections, setExpandedSections] = useState({});
   const [activeSidebarTab, setActiveSidebarTab] = useState('curriculum');
   const [memoText, setMemoText] = useState('');
-  const [isBottomExpanded, setIsBottomExpanded] = useState(false);
+  const [isBottomExpanded, setIsBottomExpanded] = useState(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
   // Video Progress Tracking State
@@ -23,6 +23,19 @@ export default function Player() {
   const [isPlaying, setIsPlaying] = useState(false);
   const progressTimerRef = useRef(null);
   const lastSavedTimeRef = useRef(0);
+
+  // AI Tutor Chat State
+  const [chatMessages, setChatMessages] = useState([
+    { role: 'ai', content: '안녕하세요! 강의를 듣다가 궁금한 점이 생기면 언제든 질문해주세요. 현재 시청 중인 타임라인에 맞춰 답변을 드릴게요.' }
+  ]);
+  const [chatInput, setChatInput] = useState('');
+  const [isChatLoading, setIsChatLoading] = useState(false);
+  const chatEndRef = useRef(null);
+
+  // Auto Grader State
+  const [codeSnippet, setCodeSnippet] = useState('');
+  const [gradeResult, setGradeResult] = useState(null);
+  const [isGrading, setIsGrading] = useState(false);
 
   // Intervention & AI Risk Tracking State
   const { user } = useAuthStore();
@@ -107,6 +120,39 @@ export default function Player() {
     }
   };
 
+  const handleChatSubmit = async (e) => {
+    e.preventDefault();
+    if (!chatInput.trim()) return;
+
+    const newMsg = { role: 'user', content: chatInput };
+    setChatMessages(prev => [...prev, newMsg]);
+    setChatInput('');
+    setIsChatLoading(true);
+
+    try {
+      const res = await api.post('/ai/chat', {
+        message: newMsg.content,
+        courseId,
+        lectureId: currentLecture?.id,
+        currentTime
+      });
+      if (res.data.success) {
+        setChatMessages(prev => [...prev, { role: 'ai', content: res.data.reply }]);
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error('AI 튜터와 연결할 수 없습니다.');
+    } finally {
+      setIsChatLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'ai_tutor' && chatEndRef.current) {
+      chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [chatMessages, activeTab]);
+
   const toggleSection = (secId) => {
     setExpandedSections(prev => ({ ...prev, [secId]: !prev[secId] }));
   };
@@ -123,7 +169,11 @@ export default function Player() {
             completedLectures: res.data.completedLectures
           }
         }));
-        toast.success('수강을 완료했습니다!');
+        if (res.data.earnedXP > 0) {
+          toast.success(`🎉 수강 완료! ${res.data.earnedXP} XP를 획득했습니다!`, { icon: '🎁', style: {background: '#fef3c7', color: '#b45309', fontWeight: 'bold'} });
+        } else {
+          toast.success('수강을 완료했습니다!');
+        }
       }
     } catch(err) {
       console.error(err);
@@ -202,10 +252,71 @@ export default function Player() {
     toast.info('배속 재생이 설정되었습니다.', { autoClose: 1000 });
   };
 
+  const handleAiChatSubmit = async (e) => {
+    if (e.preventDefault) e.preventDefault();
+    if (!chatInput.trim()) return;
+
+    const userMessage = chatInput;
+    setChatMessages(prev => [...prev, { role: 'user', content: userMessage }]);
+    setChatInput('');
+    setIsChatLoading(true);
+
+    try {
+      const playbackProgress = currentTime;
+      const res = await api.post('/ai/chat', { 
+        message: userMessage, 
+        courseId, 
+        lectureId: currentLecture?.id,
+        timeStr: formatTime(playbackProgress)
+      });
+      if (res.data.success) {
+        setChatMessages(prev => [...prev, { role: 'ai', content: res.data.reply }]);
+      }
+    } catch (err) {
+      console.error(err);
+      setChatMessages(prev => [...prev, { role: 'ai', content: '연결에 실패했습니다. 다시 시도해주세요.' }]);
+    } finally {
+      setIsChatLoading(false);
+      setTimeout(() => {
+        chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
+    }
+  };
+
+  const handleGradeSubmit = async () => {
+    if (!codeSnippet.trim()) return;
+    setIsGrading(true);
+    setGradeResult(null);
+
+    try {
+      const res = await api.post('/course/grade', {
+        codeSnippet,
+        assignmentTitle: currentLecture?.title
+      });
+      if (res.data.success) {
+        setGradeResult(res.data.result);
+      }
+    } catch (err) {
+      console.error("Grade submission failed:", err);
+      toast.error('채점 결과 수신에 오류가 발생했습니다.');
+    } finally {
+      setIsGrading(false);
+    }
+  };
+
   if(!course) return <div className="p-10 text-center">Loading Course Player...</div>;
 
   const completedSet = new Set(enrollment?.progress?.completedLectures || []);
   const isCurrentCompleted = currentLecture && completedSet.has(currentLecture.id);
+
+  const parseDuration = (durStr) => {
+    if (!durStr) return 300;
+    const parts = durStr.split(':').map(Number);
+    if (parts.length === 2) return parts[0] * 60 + parts[1];
+    return 300;
+  };
+  const totalDuration = currentLecture ? parseDuration(currentLecture.duration) : 300;
+  const formatTime = (secs) => `${Math.floor(secs / 60)}:${(secs % 60).toString().padStart(2, '0')}`;
 
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-slate-900 text-slate-200">
@@ -218,40 +329,76 @@ export default function Player() {
           <span className="font-semibold text-sm line-clamp-1">{course.title}</span>
         </div>
         <div className="text-xs text-slate-400 font-medium font-mono">
-           {Math.floor(currentTime / 60)}:{(currentTime % 60).toString().padStart(2, '0')} 학습 완료
+           {formatTime(currentTime)} / {currentLecture ? currentLecture.duration : '00:00'} 학습 경과
         </div>
       </header>
 
       <div className="flex-1 flex overflow-hidden relative">
-         {/* Left Main Area: Video + Tabs */}
+          {/* Left Main Area: Video + Tabs */}
          <div className="flex-1 flex flex-col bg-slate-900 relative min-w-0 transition-all duration-300">
-            <div className={`w-full ${isBottomExpanded ? 'h-[25vh] shrink-0' : 'flex-1'} bg-black flex flex-col items-center justify-center relative group transition-all duration-500 overflow-hidden`}>
-               {/* Video Mockup Content */}
-               <div className="absolute top-4 left-4 text-white/50 text-sm font-medium z-10">
+            <div 
+              className={`w-full ${isBottomExpanded ? 'h-[25vh] shrink-0' : 'flex-1'} bg-black relative group transition-all duration-500 overflow-hidden cursor-pointer`}
+              onClick={togglePlay}
+            >
+               {/* 1. Dummy Video Screen (Black screen with running text) */}
+               <div className="absolute inset-0 flex flex-col items-center justify-center opacity-30 select-none pointer-events-none">
+                 <div className="text-white text-6xl font-mono opacity-50 mb-4 tracking-wider">
+                   {formatTime(currentTime)}
+                 </div>
+                 <div className="text-slate-400 text-sm tracking-widest uppercase">
+                   Simulated Secure Video Stream
+                 </div>
+               </div>
+
+               <div className="absolute top-4 left-4 text-white/70 text-sm font-medium z-10 drop-shadow-md pointer-events-none">
                  {currentLecture?.title}
                </div>
 
-               <div className="flex items-center gap-6 z-10">
-                  <button onClick={handleSeekBackward} className="w-12 h-12 bg-white/10 rounded-full flex items-center justify-center text-white hover:bg-white/20 transition-all backdrop-blur-sm" title="10초 되감기">
-                     <span className="text-xs font-bold">-10s</span>
-                  </button>
-                  <button onClick={togglePlay} className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center text-white hover:bg-primary-500/80 hover:scale-110 transition-all backdrop-blur-sm">
-                     {isPlaying ? <span className="font-bold">Pause</span> : <PlayCircle size={32} />}
-                  </button>
-                  <button onClick={handleSpeedUp} className="w-12 h-12 bg-white/10 rounded-full flex items-center justify-center text-white hover:bg-white/20 transition-all backdrop-blur-sm" title="배속 설정">
-                     <span className="text-xs font-bold">1.5x</span>
-                  </button>
-               </div>
-               
-               <p className="mt-6 text-slate-400 text-sm">
-                  {isPlaying ? '재생 중...' : '클릭하여 시뮬레이터 재생'}
-               </p>
-               
-               {/* Progress Bar UI mock */}
-               <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-white/20 group-hover:h-2 transition-all cursor-pointer">
-                  <div className="bg-primary-500 h-full relative transition-all duration-1000" style={{ width: `${(currentTime / 300) * 100}%` }}>
-                     <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow scale-0 group-hover:scale-100 transition-transform"></div>
-                  </div>
+               {/* Center Play Button Overlay (when paused) */}
+               {!isPlaying && !showQuiz && (
+                 <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/40 z-20 transition-opacity">
+                    <div className="w-20 h-20 bg-primary-600/90 rounded-full flex items-center justify-center text-white scale-100 hover:scale-110 transition-transform shadow-[0_0_30px_rgba(var(--primary-600),0.5)]">
+                      <PlayCircle size={40} className="ml-2" />
+                    </div>
+                 </div>
+               )}
+
+               {/* Custom Video Controls Bar */}
+               <div 
+                 className={`absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 pb-4 pt-12 px-6 via-black/40 to-transparent z-30 transition-all duration-300 ${isPlaying ? 'opacity-0 translate-y-4 group-hover:opacity-100 group-hover:translate-y-0' : 'opacity-100'}`}
+                 onClick={e => e.stopPropagation()}
+               >
+                 {/* Progress Bar */}
+                 <div className="w-full h-1.5 bg-white/20 hover:h-2.5 transition-all cursor-pointer rounded-full mb-4 relative" 
+                      onClick={(e) => {
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        const percent = (e.clientX - rect.left) / rect.width;
+                        setCurrentTime(Math.floor(percent * totalDuration));
+                      }}>
+                    <div className="bg-primary-500 h-full relative transition-[width] duration-100 rounded-full" style={{ width: `${Math.min(100, (currentTime / totalDuration) * 100)}%` }}>
+                       <div className="absolute right-0 top-1/2 -translate-y-1/2 w-4 h-4 bg-white rounded-full shadow scale-0 group-hover:scale-100 transition-transform"></div>
+                    </div>
+                 </div>
+
+                 {/* Control Buttons */}
+                 <div className="flex items-center justify-between text-white">
+                   <div className="flex items-center gap-4">
+                     <button onClick={togglePlay} className="hover:text-primary-400 transition-colors">
+                       {isPlaying ? <span className="font-bold text-sm tracking-wider w-8 inline-block text-center border border-white/30 rounded py-1">| |</span> : <PlayCircle size={24} />}
+                     </button>
+                     <button onClick={handleSeekBackward} className="hover:text-primary-400 transition-colors text-xs font-bold bg-white/10 px-2 py-1.5 rounded-md" title="10초 되감기">
+                        -10s
+                     </button>
+                     <div className="text-xs font-mono opacity-80 pl-2">
+                       {formatTime(currentTime)} / {currentLecture ? currentLecture.duration : '00:00'}
+                     </div>
+                   </div>
+                   <div className="flex items-center gap-4">
+                     <button onClick={handleSpeedUp} className="hover:text-primary-400 transition-colors text-xs font-bold border border-white/30 px-2 py-1 rounded">
+                        1.5x
+                     </button>
+                   </div>
+                 </div>
                </div>
 
                {/* Intervention Quiz Popup overlay */}
@@ -289,16 +436,28 @@ export default function Player() {
 
                <div className="flex border-b border-slate-200 px-2 shrink-0 pt-6">
                   <button 
-                    onClick={() => setActiveTab('note')}
+                    onClick={() => { setActiveTab('note'); setIsBottomExpanded(true); }}
                     className={`px-6 py-4 font-medium text-sm flex items-center gap-2 border-b-2 transition-colors ${activeTab === 'note' ? 'border-primary-500 text-primary-600' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
                   >
                      <FileText size={16} /> 강의 노트
                   </button>
                   <button 
-                    onClick={() => setActiveTab('qa')}
-                    className={`px-6 py-4 font-medium text-sm flex items-center gap-2 border-b-2 transition-colors ${activeTab === 'qa' ? 'border-primary-500 text-primary-600' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
+                    onClick={() => { setActiveTab('qa'); setIsBottomExpanded(true); }}
+                    className={`px-6 py-4 font-medium text-sm flex items-center gap-2 border-b-2 transition-colors whitespace-nowrap ${activeTab === 'qa' ? 'border-primary-500 text-primary-600' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
                   >
                      <MessageSquare size={16} /> Q&A 게시판
+                  </button>
+                  <button 
+                    onClick={() => { setActiveTab('assignment'); setIsBottomExpanded(true); }}
+                    className={`px-6 py-4 font-medium text-sm flex items-center gap-2 border-b-2 transition-colors whitespace-nowrap ${activeTab === 'assignment' ? 'border-primary-500 text-primary-600' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
+                  >
+                     <Code size={16} className={activeTab === 'assignment' ? 'text-primary-600' : 'text-slate-400'} /> 과제 제출 (AI 채점)
+                  </button>
+                  <button 
+                    onClick={() => { setActiveTab('ai_tutor'); setIsBottomExpanded(true); }}
+                    className={`px-6 py-4 font-medium text-sm flex items-center gap-2 border-b-2 transition-colors whitespace-nowrap ${activeTab === 'ai_tutor' ? 'border-primary-500 text-primary-600' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
+                  >
+                     <Bot size={16} className={activeTab === 'ai_tutor' ? 'text-primary-600' : 'text-slate-400'} /> AI 튜터상담
                   </button>
                   <div className="ml-auto px-4 py-3 flex items-center">
                     <button 
@@ -314,14 +473,19 @@ export default function Player() {
                {isBottomExpanded && (
                  <div className="flex-1 overflow-y-auto p-6 bg-slate-50 relative">
                   {activeTab === 'note' && (
-                    <div className="prose prose-slate max-w-none">
-                      <h3 className="text-xl font-bold mb-4">{currentLecture?.title}</h3>
-                      <p className="text-slate-600">이 강의의 핵심 내용을 요약하는 노트 영역입니다. 실제 서비스에서는 마크다운 등 서식이 지원되는 텍스트가 표시됩니다.</p>
-                      <ul className="mt-4 space-y-2 text-slate-600">
-                        <li>강의 핵심 포인트 1</li>
-                        <li>놓치기 쉬운 주의사항</li>
-                        <li>실습에 필요한 코드 스니펫</li>
-                      </ul>
+                    <div className="prose prose-slate max-w-none pb-8">
+                      <h3 className="text-xl font-bold mb-4 border-b pb-2">{currentLecture?.title}</h3>
+                      {currentLecture?.note ? (
+                        <div className="mt-4 leading-relaxed marker:text-primary-500" dangerouslySetInnerHTML={{ __html: currentLecture.note }}></div>
+                      ) : (
+                        <div>
+                          <p className="text-slate-600">이 강의는 등록된 상세 노트가 없습니다.</p>
+                          <ul className="mt-4 space-y-2 text-slate-600">
+                            <li>강의 핵심 포인트 1</li>
+                            <li>실습에 필요한 코드 스니펫 등록 대기중</li>
+                          </ul>
+                        </div>
+                      )}
                     </div>
                   )}
                   {activeTab === 'qa' && (
@@ -340,6 +504,132 @@ export default function Player() {
                            <span className="text-xs text-slate-400">1일 전</span>
                         </div>
                         <p className="text-sm text-slate-700">이전 수강생 분들이 많이 하셨던 질문들을 여기에 표시하면 좋습니다. 위 강의 노트의 실습 코드를 참고해보세요.</p>
+                      </div>
+                    </div>
+                  )}
+                  {activeTab === 'ai_tutor' && (
+                    <div className="flex flex-col h-full bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                      <div className="bg-primary-50 px-4 py-3 border-b border-primary-100 flex items-center gap-3 shrink-0">
+                        <div className="w-8 h-8 bg-primary-600 rounded-full flex items-center justify-center text-white"><Bot size={18} /></div>
+                        <div>
+                          <h4 className="text-sm font-bold text-primary-900">스타피시 비전 AI 튜터</h4>
+                          <p className="text-[10px] text-primary-600">현재 영상 구간: {Math.floor(currentTime / 60)}:{(currentTime % 60).toString().padStart(2, '0')}</p>
+                        </div>
+                      </div>
+                      
+                      <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50">
+                        {chatMessages.map((msg, idx) => (
+                          <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                            <div className={`max-w-[80%] rounded-2xl px-4 py-2 text-sm ${msg.role === 'user' ? 'bg-primary-600 text-white rounded-tr-sm' : 'bg-white border border-slate-200 text-slate-700 rounded-tl-sm shadow-sm'}`}>
+                              {msg.content}
+                            </div>
+                          </div>
+                        ))}
+                        {isChatLoading && (
+                          <div className="flex justify-start">
+                            <div className="bg-white border border-slate-200 text-slate-500 rounded-2xl rounded-tl-sm px-4 py-3 flex items-center gap-1 shadow-sm">
+                              <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce"></span>
+                              <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce [animation-delay:0.2s]"></span>
+                              <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce [animation-delay:0.4s]"></span>
+                            </div>
+                          </div>
+                        )}
+                        <div ref={chatEndRef} />
+                      </div>
+                      
+                      <div className="p-3 bg-white border-t border-slate-200 shrink-0">
+                        <form onSubmit={handleAiChatSubmit} className="flex items-center gap-2 relative">
+                          <input 
+                            type="text" 
+                            value={chatInput}
+                            onChange={(e) => setChatInput(e.target.value)}
+                            placeholder="AI 튜터에게 질문하기 (현재 영상 문맥 자동 포함)" 
+                            className="flex-1 bg-slate-100 border border-slate-200 rounded-full px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/50 pr-10 hover:bg-slate-50 transition-colors"
+                          />
+                          <button 
+                            type="submit" 
+                            disabled={!chatInput.trim() || isChatLoading}
+                            className="absolute right-1 w-8 h-8 rounded-full bg-primary-600 text-white flex items-center justify-center disabled:opacity-50 hover:bg-primary-700 transition-colors"
+                          >
+                            <Send size={14} className="ml-0.5" />
+                          </button>
+                        </form>
+                      </div>
+                    </div>
+                  )}
+                  {activeTab === 'assignment' && (
+                    <div className="h-full flex flex-col pt-2 pb-8 max-w-3xl mx-auto">
+                      <div className="bg-primary-50 p-4 rounded-xl border border-primary-100 mb-6 flex gap-3">
+                        <div className="text-2xl">🤖</div>
+                        <div>
+                          <h4 className="font-bold text-primary-900 mb-1">실습 과제 제출 및 실시간 AI 코드 리뷰</h4>
+                          <p className="text-sm text-primary-700 leading-relaxed">
+                            작성하신 코드를 아래에 붙여넣으세요. 제출 즉시 <strong>가독성, 로직 무결성, 효율성</strong> 기준에 맞춰 AI가 채점하고 피드백을 부여합니다.
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex-1 flex flex-col gap-4">
+                        <textarea
+                          placeholder="// 여기에 실습 코드를 작성하거나 붙여넣으세요..."
+                          className="w-full flex-1 min-h-[250px] p-4 bg-slate-800 text-slate-100 font-mono text-sm rounded-xl focus:ring-2 focus:ring-primary-500 focus:outline-none resize-none"
+                          value={codeSnippet}
+                          onChange={(e) => setCodeSnippet(e.target.value)}
+                          disabled={isGrading}
+                          spellCheck={false}
+                        />
+
+                        <button
+                          onClick={handleGradeSubmit}
+                          disabled={isGrading || !codeSnippet.trim()}
+                          className="btn-primary w-full py-3 flex justify-center items-center gap-2 font-bold"
+                        >
+                          {isGrading ? (
+                            <><Loader2 size={18} className="animate-spin" /> 철저히 분석 및 채점 중...</>
+                          ) : (
+                            <><Code size={18} /> 실습 코드 제출 및 채점받기</>
+                          )}
+                        </button>
+
+                        {gradeResult && (
+                          <div className="mt-6 bg-white border-2 border-slate-200 rounded-xl overflow-hidden shadow-lg animate-in fade-in slide-in-from-bottom-4">
+                            <div className={`p-6 border-b flex items-center justify-between ${gradeResult.score >= 80 ? 'bg-emerald-50 border-emerald-100' : gradeResult.score >= 60 ? 'bg-amber-50 border-amber-100' : 'bg-red-50 border-red-100'}`}>
+                              <div>
+                                <h3 className="font-bold text-lg text-slate-800">채점 결과 리포트</h3>
+                                <p className="text-slate-600 text-sm mt-1">{gradeResult.oneLineFeedback}</p>
+                              </div>
+                              <div className="text-center">
+                                <span className={`text-4xl font-extrabold ${gradeResult.score >= 80 ? 'text-emerald-600' : gradeResult.score >= 60 ? 'text-amber-500' : 'text-red-500'}`}>
+                                  {gradeResult.score}
+                                </span>
+                                <span className="text-slate-500 text-sm block">/ 100점</span>
+                              </div>
+                            </div>
+                            <div className="p-6 space-y-4">
+                              <div className="flex gap-4">
+                                <div className="text-xl">📖</div>
+                                <div>
+                                  <h4 className="font-bold text-slate-800 text-sm">가독성 판단</h4>
+                                  <p className="text-slate-600 text-sm leading-relaxed">{gradeResult.readability}</p>
+                                </div>
+                              </div>
+                              <div className="flex gap-4">
+                                <div className="text-xl">⚙️</div>
+                                <div>
+                                  <h4 className="font-bold text-slate-800 text-sm">로직 및 버그 유무</h4>
+                                  <p className="text-slate-600 text-sm leading-relaxed">{gradeResult.logic}</p>
+                                </div>
+                              </div>
+                              <div className="flex gap-4">
+                                <div className="text-xl">⚡</div>
+                                <div>
+                                  <h4 className="font-bold text-slate-800 text-sm">효율성 (알고리즘)</h4>
+                                  <p className="text-slate-600 text-sm leading-relaxed">{gradeResult.efficiency}</p>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}

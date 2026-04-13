@@ -9,6 +9,8 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState(location.state?.tab || 'studying');
   const [dashboardSearchQuery, setDashboardSearchQuery] = useState('');
+  const [recommendations, setRecommendations] = useState([]);
+  const [leaderboard, setLeaderboard] = useState([]);
   const [favorites, setFavorites] = useState(() => {
     const saved = localStorage.getItem('courseFavorites');
     return saved ? JSON.parse(saved) : [];
@@ -34,6 +36,14 @@ export default function Dashboard() {
         console.error(err);
         setLoading(false);
       });
+
+    api.get('/recommendations')
+      .then(res => setRecommendations(res.data.recommendations || []))
+      .catch(console.error);
+
+    api.get('/gamification')
+      .then(res => setLeaderboard(res.data.leaderboard || []))
+      .catch(console.error);
   }, []);
 
   useEffect(() => {
@@ -175,6 +185,64 @@ export default function Dashboard() {
           )}
         </>
       )}
+
+      {/* 페이스메이커 랭킹 & 추천 커리큘럼 영역 */}
+      <div className="mt-16 grid grid-cols-1 lg:grid-cols-3 gap-8">
+        
+        {/* 페이스메이커 리더보드 */}
+        <div className="lg:col-span-1 bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+          <h2 className="text-xl font-bold text-slate-800 mb-2 flex items-center gap-2">
+            🏆 페이스메이커 랭킹
+          </h2>
+          <p className="text-xs text-slate-500 mb-6">같이 성장하는 우수 수강생 리더보드</p>
+          
+          <div className="space-y-4">
+            {leaderboard.length > 0 ? leaderboard.map((user, idx) => (
+              <div key={user.id} className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 border border-slate-100 hover:bg-slate-100 transition-colors">
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${idx === 0 ? 'bg-yellow-100 text-yellow-600' : idx === 1 ? 'bg-slate-200 text-slate-600' : idx === 2 ? 'bg-orange-100 text-orange-600' : 'bg-slate-100 text-slate-400'}`}>
+                  {idx + 1}
+                </div>
+                <div className="flex-1">
+                  <div className="font-semibold text-slate-800 text-sm">{user.name} <span className="text-xs text-slate-500 font-normal">Lv.{user.level}</span></div>
+                  <div className="text-xs text-primary-600 font-bold">{user.xp} XP</div>
+                </div>
+              </div>
+            )) : <p className="text-sm text-slate-500 text-center py-4">랭킹 데이터가 없습니다.</p>}
+          </div>
+        </div>
+
+        {/* AI 추천 커리큘럼 */}
+        <div className="lg:col-span-2">
+          <h2 className="text-xl font-bold text-slate-800 mb-2 flex items-center gap-2">
+            ✨ AI 맞춤형 커리큘럼 추천
+          </h2>
+          <p className="text-xs text-slate-500 mb-6">회원님의 학습 패턴과 목표에 맞춰 선별된 강의입니다.</p>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {recommendations.length > 0 ? recommendations.map(course => (
+              <Link to={`/course/${course.id}`} key={course.id} className="group flex gap-4 bg-white rounded-2xl shadow-sm border border-slate-100 p-4 hover:shadow-md transition-shadow">
+                <div className="w-24 h-24 rounded-xl overflow-hidden shrink-0">
+                  <img src={course.thumbnail} alt={course.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                </div>
+                <div className="flex flex-col justify-center">
+                  <h3 className="font-bold text-slate-800 text-sm line-clamp-2 leading-tight mb-2 group-hover:text-primary-600 transition-colors">{course.title}</h3>
+                  <div className="bg-primary-50 rounded-lg p-2 mt-auto">
+                    <p className="text-[10px] text-primary-700 leading-snug break-keep">
+                      "{course.aiReason}"
+                    </p>
+                  </div>
+                </div>
+              </Link>
+            )) : (
+              <div className="col-span-full border-dashed border-2 border-slate-200 rounded-2xl p-8 text-center text-slate-500">
+                추천할 강의가 더 이상 없습니다. 모든 강의를 마스터하셨네요!
+              </div>
+            )}
+          </div>
+        </div>
+
+      </div>
+
     </div>
   );
 }

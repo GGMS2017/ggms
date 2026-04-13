@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Users, BookOpen, Presentation, Activity } from 'lucide-react';
+import { Users, BookOpen, Presentation, Activity, Sparkles, Loader2 } from 'lucide-react';
 import api from '../api/axios';
 import useAuthStore from '../store/useAuthStore';
 
@@ -8,15 +8,13 @@ export default function AdminDashboard() {
   const [stats, setStats] = useState(null);
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [showGenerateModal, setShowGenerateModal] = useState(false);
+  const [coursePrompt, setCoursePrompt] = useState('');
+  const [generating, setGenerating] = useState(false);
   const navigate = useNavigate();
   const { user } = useAuthStore();
 
-  useEffect(() => {
-    if (user?.role !== 'admin' && user?.role !== 'instructor') {
-      navigate('/');
-      return;
-    }
-
+  const fetchStats = () => {
     api.get('/admin/stats')
       .then(res => {
         const data = res.data;
@@ -30,7 +28,34 @@ export default function AdminDashboard() {
         console.error(err);
         setLoading(false);
       });
+  };
+
+  useEffect(() => {
+    if (user?.role !== 'admin' && user?.role !== 'instructor') {
+      navigate('/');
+      return;
+    }
+    fetchStats();
   }, [navigate, user]);
+
+  const handleGenerateCourse = async () => {
+    if (!coursePrompt.trim()) return;
+    setGenerating(true);
+    try {
+      const res = await api.post('/admin/generate-course', { prompt: coursePrompt });
+      if (res.data.success) {
+        import('react-toastify').then(({toast}) => toast.success(`'${res.data.course.title}' 코스가 성공적으로 생성되었습니다!`));
+        setShowGenerateModal(false);
+        setCoursePrompt('');
+        fetchStats(); // Refresh stats
+      }
+    } catch (err) {
+      console.error(err);
+      import('react-toastify').then(({toast}) => toast.error('강좌 생성 실패'));
+    } finally {
+      setGenerating(false);
+    }
+  };
 
   if (loading) return <div className="p-10 text-center text-slate-500">통계 데이터를 불러오는 중...</div>;
   if (!stats) return <div className="p-10 text-center text-red-500">데이터를 불러오지 못했습니다.</div>;
@@ -44,7 +69,49 @@ export default function AdminDashboard() {
           </h1>
           <p className="text-slate-500 mt-2 pl-4">전체 수강생 통계 및 현황을 모니터링합니다.</p>
         </div>
+        <button 
+          onClick={() => setShowGenerateModal(true)}
+          className="btn-primary flex items-center gap-2 shadow-primary-500/30 shadow-lg px-6"
+        >
+          <Sparkles size={18} /> ✨ AI 신규 코스 무한 생성
+        </button>
       </div>
+
+      {showGenerateModal && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-lg shadow-2xl">
+            <h2 className="text-2xl font-bold flex items-center gap-2 text-slate-800 mb-2">
+              <Sparkles className="text-primary-500" /> AI 강좌 자동 기획
+            </h2>
+            <p className="text-slate-500 text-sm mb-6">주제만 입력하시면 AI가 목차와 텍스트를 구성하여 3초 만에 새 커리큘럼을 실시간으로 배포합니다.</p>
+            
+            <textarea
+              className="w-full border-2 border-slate-200 rounded-xl p-4 min-h-[120px] focus:border-primary-500 focus:outline-none transition-colors mb-4 resize-none"
+              placeholder="예: 최신 트렌드를 반영한 GPT 프롬프트 엔지니어링 3시간 핵심 구성 짜줘. 예제도 섞어서 실무용으로."
+              value={coursePrompt}
+              onChange={(e) => setCoursePrompt(e.target.value)}
+              disabled={generating}
+            />
+            
+            <div className="flex gap-3 justify-end mt-4">
+              <button 
+                onClick={() => setShowGenerateModal(false)}
+                className="btn-outline px-6 text-slate-600 hover:bg-slate-50"
+                disabled={generating}
+              >
+                취소
+              </button>
+              <button 
+                onClick={handleGenerateCourse}
+                disabled={generating || !coursePrompt.trim()}
+                className="btn-primary w-32 flex justify-center items-center gap-2"
+              >
+                {generating ? <Loader2 size={18} className="animate-spin" /> : '🚀 실시간 개설'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
         <StatCard 

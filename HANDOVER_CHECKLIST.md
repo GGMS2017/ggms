@@ -43,22 +43,41 @@
 ## 🥉 Phase 3: 차세대 교육 방향성에 맞춘 추가 업그레이드
 *대안적인 학습 도구들을 추가하여 사이트를 더 혁신적이고 풍성하게 만듭니다.*
 
-- [ ] **AI 커리큘럼 추천 (Personalized Learning Path)**
-  - [ ] 학생의 사전 역량이나 약점을 기반으로 다음에 들으면 좋을 강의나 챕터를 동적으로 추천
-- [ ] **AI 챗봇 보조 강사 (AI Tutor Assistant)**
-  - [ ] 동영상 재생 화면(`Player.jsx`) 우측 혹은 하단에 "이해가 안 되는 부분 질문하기" AI 챗 기능 적용 (현재 보고 있는 영상 타임라인 문맥 인지 질문)
-- [ ] **게이미피케이션(Gamification)**
-  - [ ] 강의 수료, 연속 출석 시 배지(Badge) 및 경험치(XP) 부여 애니메이션 (Lottie, Framer Motion 등 활용)
-  - [ ] 또래 수강생 대비 본인의 학습 속도를 시각화 한 랭킹 / 페이스메이커 기능 추가
+- [x] **AI 커리큘럼 추천 (Personalized Learning Path)**
+  - [x] 학생의 사전 역량이나 약점을 기반으로 다음에 들으면 좋을 강의나 챕터를 동적으로 추천
+- [x] **AI 챗봇 보조 강사 (AI Tutor Assistant)**
+  - [x] 동영상 재생 화면(`Player.jsx`) 우측 혹은 하단에 "이해가 안 되는 부분 질문하기" AI 챗 기능 적용 (현재 보고 있는 영상 타임라인 문맥 인지 질문)
+- [x] **게이미피케이션(Gamification)**
+  - [x] 강의 수료, 연속 출석 시 배지(Badge) 및 경험치(XP) 부여 애니메이션 (Lottie, Framer Motion 등 활용)
+  - [x] 또래 수강생 대비 본인의 학습 속도를 시각화 한 랭킹 / 페이스메이커 기능 추가
 
 ---
 
 ## ⏳ Phase 4: 실제 데이터베이스(DB) 연결 및 마이그레이션 (가장 마지막 작업)
 *기능 개발이 모두 완료되면 실제 안정적인 서비스 운영을 위해 Mock 데이터를 걷어냅니다.*
 
-- [ ] **실제 RDBMS / NoSQL 스키마 구축**
-  - [ ] PostgreSQL, MySQL 혹은 MongoDB 등을 채택하고 User, Course, Progress, RiskLog 구조 설계
-- [ ] **데이터 I/O 로직 전면 대체**
-  - [ ] `backend/data/mockDB.json` 에 의존하던 `read/write` 패턴을 DB 패키지(예: Prisma, Mongoose)를 이용한 ORM/ODM 비동기 쿼리로 대체
-- [ ] **테스트 및 검증**
-  - [ ] 페이징 처리, 인덱싱 연동 등이 잘 수행되는지 최종 확인 및 배포 세팅 완료
+- [x] **실제 RDBMS / NoSQL 스키마 구축**
+  - [x] PostgreSQL, MySQL 혹은 MongoDB 등을 채택하고 User, Course, Progress, RiskLog 구조 설계
+- [x] **데이터 I/O 로직 전면 대체**
+  - [x] `backend/data/mockDB.json` 에 의존하던 `read/write` 패턴을 DB 패키지(예: Prisma, Mongoose)를 이용한 ORM/ODM 비동기 쿼리로 대체
+- [x] **테스트 및 검증**
+  - [x] 페이징 처리, 인덱싱 연동 등이 잘 수행되는지 최종 확인 및 배포 세팅 완료
+
+---
+
+## 🤖 [Next AI] 타 AI(Claude, ChatGPT 등) 인수인계 안내 가이드
+현재 작업 컨텍스트를 넘겨받은 AI는 아래 사항을 숙지하고 이어서 작업을 진행하십시오.
+
+1. **현재 개발 현황 요약:**
+   - 백엔드(Node.js/Express) + 프론트엔드(React/Vite) + 데이터베이스(MongoDB)가 모노레포 형태로 구성되어 있으며, `docker-compose up -d --build` 단일 명령어로 MSA 빌드 및 오케스트레이션이 완벽하게 지원됩니다.
+   - 데이터베이스 초기화 시 `generateMockData.js` 로직에 의해 25명의 가상 유저 기록과 수강 내역(이탈 리스크 로그 포함)이 자동 Seeding 됩니다.
+   - 마이페이지 정보 수정, 태그 기반 코스 탐색 필터, 수강 신청 등 코어 기능이 모두 MongoDB 파이프라인에 결합되어 있습니다.
+
+2. **작업 폴더 구조:**
+   - `/frontend` : React 애플리케이션 및 Nginx용 멀티스테이지 Dockerfile
+   - `/backend` : Express API 서버 및 Mongoose Schemas (User, Course, Enrollment 모델)
+   - `/` (Root) : `docker-compose.yml` 및 하이레벨 프로젝트 문서(`PROJECT_SHOWCASE.md`)
+
+3. **향후(Next Step) 권장 개발 방향성:**
+   - 사용자가 Phase 1의 "동영상 플레이어 고도화(시청 기록 전송 등)"나 "Auth 인프라 구축(JWT 연동)" 등을 추가로 원할 경우, `backend/server.js`의 기존 API들과의 충돌을 방지하면서 JWT 미들웨어를 강화하는 방향으로 작업해주세요.
+   - 프로젝트 뼈대는 완성이니, UI 디자인의 디테일을 다듬거나 코드 리팩토링 위주로 지원하면 됩니다. Mongoose Schema 수정 시 Drop 후 Seeding 과정을 염두에 두십시오.

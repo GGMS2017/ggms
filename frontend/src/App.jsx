@@ -31,7 +31,7 @@ function App() {
             <Route path="/player/:courseId" element={<ProtectedRoute><Player /></ProtectedRoute>} />
 
             {/* Protected Routes (Admin / Instructor only) */}
-            <Route path="/admin" element={<ProtectedRoute requireRole="admin"><AdminDashboard /></ProtectedRoute>} /> 
+            <Route path="/admin" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} /> 
           </Routes>
         </main>
       </div>

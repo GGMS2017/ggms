@@ -8,6 +8,7 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [searchParams] = useSearchParams();
   const query = searchParams.get('q') || '';
+  const [selectedTag, setSelectedTag] = useState('전체');
 
   useEffect(() => {
     api.get('/courses')
@@ -25,6 +26,13 @@ export default function Home() {
     return <div className="p-10 text-center text-slate-500">강의 목록을 불러오는 중...</div>;
   }
 
+  const allTags = ['전체', ...new Set(courses.flatMap(c => c.tags))];
+  const filteredCourses = courses.filter(c => {
+    const matchQuery = c.title.toLowerCase().includes(query.toLowerCase()) || c.description.toLowerCase().includes(query.toLowerCase());
+    const matchTag = selectedTag === '전체' || c.tags.includes(selectedTag);
+    return matchQuery && matchTag;
+  });
+
   return (
     <div className="max-w-7xl mx-auto px-4 py-12">
       <div className="mb-10 text-center">
@@ -32,8 +40,24 @@ export default function Home() {
         <p className="text-lg text-slate-500">실무와 가장 맞닿은 IT 전문 교육을 지금 시작하세요</p>
       </div>
 
+      <div className="mb-10 flex flex-wrap gap-2 justify-center">
+        {allTags.map(tag => (
+          <button
+            key={tag}
+            onClick={() => setSelectedTag(tag)}
+            className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+              selectedTag === tag 
+                ? 'bg-primary-600 text-white shadow-md' 
+                : 'bg-white border border-slate-200 text-slate-600 hover:bg-primary-50'
+            }`}
+          >
+            {tag === '전체' ? tag : `#${tag}`}
+          </button>
+        ))}
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-        {courses.filter(c => c.title.toLowerCase().includes(query.toLowerCase()) || c.description.toLowerCase().includes(query.toLowerCase())).map(course => (
+        {filteredCourses.map(course => (
           <Link key={course.id} to={`/course/${course.id}`} className="group block">
             <div className="card overflow-hidden flex flex-col h-full hover:-translate-y-1 transition-transform duration-300">
               <div className="relative aspect-video overflow-hidden bg-slate-100">
