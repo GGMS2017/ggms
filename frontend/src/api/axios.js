@@ -3,8 +3,8 @@ import useAuthStore from '../store/useAuthStore';
 
 // Axios 기본 인스턴스 설정
 const api = axios.create({
-  baseURL: 'http://localhost:3000/api',
-  timeout: 5000,
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3000/api',
+  timeout: 10000,
   headers: {
     'Content-Type': 'application/json',
   },

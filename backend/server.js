@@ -17,7 +17,16 @@ const openai = new OpenAI({
 });
 
 const app = express();
-app.use(cors());
+app.use(cors({
+  origin: [
+    'http://localhost:5173',
+    'http://localhost:80',
+    /\.vercel\.app$/,
+    /\.railway\.app$/,
+    process.env.FRONTEND_URL
+  ].filter(Boolean),
+  credentials: true
+}));
 app.use(express.json());
 
 const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-starfish-key';
