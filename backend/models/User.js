@@ -9,7 +9,8 @@ const userSchema = new mongoose.Schema({
   xp: { type: Number, default: 0 },
   level: { type: Number, default: 1 },
   streak: { type: Number, default: 0 },
-  badges: { type: [String], default: [] }
+  badges: { type: [String], default: [] },
+  lastStudyDate: { type: String, default: null }
 }, { timestamps: true });
 
 module.exports = mongoose.model('User', userSchema);

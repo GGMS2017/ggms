@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { BookOpen } from 'lucide-react';
 import useAuthStore from '../store/useAuthStore';
 import api from '../api/axios';
@@ -76,7 +76,14 @@ export default function Auth() {
           </button>
         </form>
 
-        <div className="mt-8 pt-6 border-t border-slate-100 text-sm text-slate-500 text-center">
+        <div className="mt-6 text-center text-sm text-slate-500">
+          처음 오셨나요?{' '}
+          <Link to="/register" className="text-primary-600 font-semibold hover:underline">
+            회원가입
+          </Link>
+        </div>
+
+        <div className="mt-6 pt-6 border-t border-slate-100 text-sm text-slate-500 text-center">
           <p className="font-semibold mb-2">MVP 테스트용 계정 안내</p>
           <ul className="text-xs space-y-1 bg-slate-50 p-3 rounded-lg text-left inline-block">
             <li>• 관리자: <b>admin@test.com</b></li>

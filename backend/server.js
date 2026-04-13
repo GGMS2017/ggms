@@ -9,6 +9,7 @@ const seedDB = require('./seed');
 const User = require('./models/User');
 const Course = require('./models/Course');
 const Enrollment = require('./models/Enrollment');
+const Message = require('./models/Message');
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
@@ -44,6 +45,37 @@ const authMiddleware = (req, res, next) => {
     return res.status(401).json({ error: '토큰이 만료되었거나 유효하지 않습니다.' });
   }
 };
+
+// 0-0. 회원가입 엔드포인트
+app.post('/api/register', async (req, res) => {
+  try {
+    const { name, email, password } = req.body;
+    if (!name || !email || !password) {
+      return res.status(400).json({ error: '이름, 이메일, 비밀번호는 필수입니다.' });
+    }
+    if (password.length < 6) {
+      return res.status(400).json({ error: '비밀번호는 6자 이상이어야 합니다.' });
+    }
+
+    const existing = await User.findOne({ email });
+    if (existing) return res.status(409).json({ error: '이미 사용 중인 이메일입니다.' });
+
+    const bcrypt = require('bcryptjs');
+    const hashedPw = await bcrypt.hash(password, 10);
+    const newUser = new User({
+      id: `user_${Date.now()}`,
+      email,
+      password: hashedPw,
+      name,
+      role: 'student'
+    });
+    await newUser.save();
+
+    res.json({ success: true, message: '회원가입이 완료되었습니다.' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 
 // 0. 로그인 엔드포인트
 app.post('/api/login', async (req, res) => {
@@ -110,6 +142,79 @@ app.post('/api/enroll', authMiddleware, async (req, res) => {
 
     await newEnrollment.save();
     res.json({ success: true, enrollment: newEnrollment });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 2-1-5. 비밀번호 변경 (Protected)
+app.put('/api/user/password', authMiddleware, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ error: '현재 비밀번호와 새 비밀번호는 필수입니다.' });
+    }
+    if (newPassword.length < 6) {
+      return res.status(400).json({ error: '새 비밀번호는 6자 이상이어야 합니다.' });
+    }
+
+    const user = await User.findOne({ id: req.user.id });
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    // 시드 데이터 유저(비밀번호 없음)는 any password로 허용
+    if (user.password) {
+      const bcrypt = require('bcryptjs');
+      const isMatch = await bcrypt.compare(currentPassword, user.password);
+      if (!isMatch) return res.status(401).json({ error: '현재 비밀번호가 올바르지 않습니다.' });
+    }
+
+    const bcrypt = require('bcryptjs');
+    user.password = await bcrypt.hash(newPassword, 10);
+    await user.save();
+
+    res.json({ success: true, message: '비밀번호가 변경되었습니다.' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 2-1-8. 마이페이지 수강 통계 조회 (Protected)
+app.get('/api/user/stats', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const enrollments = await Enrollment.find({ userId });
+
+    let studyingCount = 0;
+    let completedCount = 0;
+    let totalLearningSeconds = 0;
+
+    for (const enroll of enrollments) {
+      const course = await Course.findOne({ id: enroll.courseId });
+      if (!course) continue;
+      const totalLectures = course.curriculum.reduce((acc, sec) => acc + sec.lectures.length, 0);
+      const completed = (enroll.progress?.completedLectures || []).length;
+
+      if (completed >= totalLectures && totalLectures > 0) {
+        completedCount++;
+      } else {
+        studyingCount++;
+      }
+
+      // 강의별 저장된 시청 위치(positions) 합산
+      const positions = enroll.progress?.positions || {};
+      for (const time of Object.values(positions)) {
+        totalLearningSeconds += (typeof time === 'number' ? time : 0);
+      }
+    }
+
+    res.json({
+      success: true,
+      stats: {
+        studyingCount,
+        completedCount,
+        totalLearningHours: parseFloat((totalLearningSeconds / 3600).toFixed(1))
+      }
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -189,6 +294,7 @@ app.post('/api/enrollments/:courseId/complete', authMiddleware, async (req, res)
 
     let currentCompleted = enrollment.get('progress.completedLectures') || [];
     let earnedXP = 0;
+    let earnedBadges = [];
     
     if (!currentCompleted.includes(lectureId)) {
       currentCompleted.push(lectureId);
@@ -200,11 +306,36 @@ app.post('/api/enrollments/:courseId/complete', authMiddleware, async (req, res)
         earnedXP = 50;
         user.xp = (user.xp || 0) + earnedXP;
         user.level = Math.floor(user.xp / 100) + 1;
+
+        // 스트릭 업데이트
+        const todayStr = new Date().toISOString().slice(0, 10);
+        const yesterdayStr = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+        if (user.lastStudyDate === todayStr) {
+          // 오늘 이미 학습함 — streak 유지
+        } else if (user.lastStudyDate === yesterdayStr) {
+          user.streak = (user.streak || 0) + 1;
+        } else {
+          user.streak = 1; // 연속이 끊겼으면 리셋
+        }
+        user.lastStudyDate = todayStr;
+
+        // 배지 자동 부여
+        const newBadges = [];
+        const totalCompleted = currentCompleted.length;
+        if (totalCompleted >= 1 && !user.badges.includes('first_lecture')) newBadges.push('first_lecture');
+        if (totalCompleted >= 5 && !user.badges.includes('lecture_5')) newBadges.push('lecture_5');
+        if (totalCompleted >= 10 && !user.badges.includes('lecture_10')) newBadges.push('lecture_10');
+        if (user.streak >= 3 && !user.badges.includes('streak_3')) newBadges.push('streak_3');
+        if (user.streak >= 7 && !user.badges.includes('streak_7')) newBadges.push('streak_7');
+        if (user.xp >= 500 && !user.badges.includes('xp_500')) newBadges.push('xp_500');
+        if (newBadges.length > 0) user.badges = [...user.badges, ...newBadges];
+
         await user.save();
+        if (newBadges.length > 0) earnedBadges = newBadges;
       }
     }
     
-    res.json({ success: true, completedLectures: currentCompleted, earnedXP });
+    res.json({ success: true, completedLectures: currentCompleted, earnedXP, earnedBadges });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -362,12 +493,13 @@ app.get('/api/admin/risk-students', authMiddleware, async (req, res) => {
         
         riskStudents.push({
           id: `${user.id}_${course.id}`,
+          userId: user.id,
           userName: user.name,
           userEmail: user.email,
           courseName: course.title,
           riskLevel: result.riskLevel || 'Medium',
           aiSummary: result.aiSummary || '분석을 요약할 수 없습니다.',
-          lastActive: logs.length > 0 ? logs[logs.length-1].timestamp : enroll.createdAt // Mongoose adds createdAt instead of enrolledAt
+          lastActive: logs.length > 0 ? logs[logs.length-1].timestamp : enroll.createdAt
         });
       } catch (err) {
         console.error("GPT Analysis Error:", err);
@@ -383,17 +515,46 @@ app.get('/api/admin/risk-students', authMiddleware, async (req, res) => {
   }
 });
 
-// 9. 관리자 개입 액션 (Admin Only)
-app.post('/api/admin/interventions', authMiddleware, (req, res) => {
+// 9. 관리자 개입 액션 — 실제 메시지 DB 저장 (Admin Only)
+app.post('/api/admin/interventions', authMiddleware, async (req, res) => {
   try {
     if (req.user.role !== 'admin' && req.user.role !== 'instructor') {
       return res.status(403).json({ error: '관리자 권한이 필요합니다.' });
     }
 
-    const { targetId, actionType, message } = req.body;
-    console.log(`[Intervention Triggered] Target: ${targetId}, Action: ${actionType}, Message: ${message}`);
+    const { targetUserId, actionType, message } = req.body;
+    if (!targetUserId || !actionType) {
+      return res.status(400).json({ error: 'targetUserId, actionType은 필수입니다.' });
+    }
 
-    res.json({ success: true, message: '학생에게 해당 조치를 성공적으로 전달했습니다.' });
+    const defaultMsg = actionType === 'mentor'
+      ? '강사가 1:1 멘토링을 신청했습니다. 학습 관련 어려움이 있다면 편하게 연락주세요!'
+      : '학습 잘 하고 계신가요? 포기하지 말고 조금만 더 힘내세요! 강사 드림 💪';
+
+    const newMsg = new Message({
+      id: `msg_${Date.now()}`,
+      fromUserId: req.user.id,
+      toUserId: targetUserId,
+      actionType,
+      content: message || defaultMsg
+    });
+    await newMsg.save();
+
+    res.json({ success: true, message: '학생에게 메시지를 성공적으로 전달했습니다.' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 9-1. 내 받은 메시지 조회 (Protected)
+app.get('/api/messages', authMiddleware, async (req, res) => {
+  try {
+    const messages = await Message.find({ toUserId: req.user.id }).sort({ createdAt: -1 });
+    // 읽지 않은 메시지 개수
+    const unreadCount = messages.filter(m => !m.isRead).length;
+    // 조회 시 전부 읽음 처리
+    await Message.updateMany({ toUserId: req.user.id, isRead: false }, { isRead: true });
+    res.json({ success: true, messages, unreadCount });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -494,6 +655,48 @@ app.get('/api/gamification', authMiddleware, async (req, res) => {
       leaderboard: rankedUsers
     });
   } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 12.5. AI 집중도 퀴즈 생성 (Protected)
+app.post('/api/ai/quiz', authMiddleware, async (req, res) => {
+  try {
+    const { courseId, lectureId } = req.body;
+
+    const course = await Course.findOne({ id: courseId });
+    let lectureTitle = '';
+    let lectureNote = '';
+    if (course) {
+      for (const section of course.curriculum) {
+        const lec = section.lectures.find(l => l.id === lectureId);
+        if (lec) { lectureTitle = lec.title; lectureNote = lec.note || ''; break; }
+      }
+    }
+
+    const systemPrompt = `다음 강의 내용을 기반으로 학습 집중도를 확인하는 4지선다 퀴즈 1문제를 생성하세요.
+강의 제목: ${lectureTitle}
+강의 노트 요약: ${lectureNote.replace(/<[^>]*>/g, '').slice(0, 500)}
+
+반드시 다음 JSON 형식으로만 응답:
+{
+  "question": "질문 내용",
+  "options": ["선택지1", "선택지2", "선택지3", "선택지4"],
+  "answerIndex": 0,
+  "explanation": "정답 해설 (1~2문장)"
+}`;
+
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [{ role: "user", content: systemPrompt }],
+      temperature: 0.5,
+      response_format: { type: "json_object" }
+    });
+
+    const quiz = JSON.parse(completion.choices[0].message.content);
+    res.json({ success: true, quiz });
+  } catch (error) {
+    console.error("AI Quiz Error:", error);
     res.status(500).json({ error: error.message });
   }
 });

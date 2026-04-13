@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Play, Star, Search } from 'lucide-react';
+import { Play, Star, Search, Bell } from 'lucide-react';
 import api from '../api/axios';
+import { toast } from 'react-toastify';
 
 export default function Dashboard() {
   const location = useLocation();
@@ -11,6 +12,8 @@ export default function Dashboard() {
   const [dashboardSearchQuery, setDashboardSearchQuery] = useState('');
   const [recommendations, setRecommendations] = useState([]);
   const [leaderboard, setLeaderboard] = useState([]);
+  const [messages, setMessages] = useState([]);
+  const [showMessages, setShowMessages] = useState(false);
   const [favorites, setFavorites] = useState(() => {
     const saved = localStorage.getItem('courseFavorites');
     return saved ? JSON.parse(saved) : [];
@@ -43,6 +46,17 @@ export default function Dashboard() {
 
     api.get('/gamification')
       .then(res => setLeaderboard(res.data.leaderboard || []))
+      .catch(console.error);
+
+    api.get('/messages')
+      .then(res => {
+        if (res.data.success) {
+          setMessages(res.data.messages || []);
+          if (res.data.unreadCount > 0) {
+            toast(`📬 강사로부터 새 메시지 ${res.data.unreadCount}개가 도착했어요!`, { autoClose: 6000, icon: '💌' });
+          }
+        }
+      })
       .catch(console.error);
   }, []);
 
@@ -78,7 +92,45 @@ export default function Dashboard() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-6 text-slate-900">내 강의실</h1>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-3xl font-bold text-slate-900">내 강의실</h1>
+        <div className="relative">
+          <button
+            onClick={() => setShowMessages(!showMessages)}
+            className="relative p-2 rounded-full hover:bg-slate-100 transition-colors"
+            title="받은 메시지"
+          >
+            <Bell size={22} className="text-slate-500" />
+            {messages.some(m => !m.isRead) && (
+              <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white"></span>
+            )}
+          </button>
+          {showMessages && (
+            <div className="absolute right-0 top-12 w-80 bg-white rounded-2xl shadow-xl border border-slate-100 z-50 overflow-hidden">
+              <div className="p-4 border-b border-slate-100 flex justify-between items-center">
+                <h3 className="font-bold text-slate-800">강사 메시지</h3>
+                <span className="text-xs text-slate-400">{messages.length}개</span>
+              </div>
+              <div className="max-h-80 overflow-y-auto">
+                {messages.length === 0 ? (
+                  <p className="p-4 text-sm text-slate-400 text-center">받은 메시지가 없습니다.</p>
+                ) : (
+                  messages.map((msg, idx) => (
+                    <div key={idx} className="p-4 border-b border-slate-50 hover:bg-slate-50">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-base">{msg.actionType === 'mentor' ? '👨‍🏫' : '💌'}</span>
+                        <span className="text-xs font-semibold text-slate-600">{msg.actionType === 'mentor' ? '1:1 멘토링 안내' : '강사 격려 메시지'}</span>
+                        <span className="text-xs text-slate-300 ml-auto">{new Date(msg.createdAt).toLocaleDateString('ko-KR')}</span>
+                      </div>
+                      <p className="text-sm text-slate-700 leading-relaxed">{msg.content}</p>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
       
       {enrollments.length === 0 ? (
         <div className="card p-12 text-center flex flex-col items-center justify-center border-dashed border-2">

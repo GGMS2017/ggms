@@ -218,16 +218,15 @@ function RiskStudentsTable() {
       });
   }, []);
 
-  const handleAction = async (targetId, actionType) => {
+  const handleAction = async (targetUserId, actionType) => {
     try {
-      const message = actionType === 'message' ? '격려 메시지' : '1:1 멘토링 매칭';
+      const label = actionType === 'message' ? '격려 메시지' : '1:1 멘토링 매칭';
       const res = await api.post('/admin/interventions', {
-        targetId,
-        actionType,
-        message
+        targetUserId,
+        actionType
       });
       if(res.data.success) {
-        import('react-toastify').then(({toast}) => toast.success(`${message} 작수 성공! 대상 학생에게 전송됩니다.`));
+        import('react-toastify').then(({toast}) => toast.success(`${label} 전송 완료! 대상 학생에게 전달됩니다.`));
       }
     } catch(err) {
       console.error(err);
@@ -272,10 +271,10 @@ function RiskStudentsTable() {
                </div>
 
                <div className="shrink-0 flex flex-col gap-2 justify-center md:border-l md:border-slate-100 md:pl-6">
-                 <button onClick={() => handleAction(student.id, 'message')} className="btn-outline border-slate-200 text-slate-600 hover:text-primary-600 hover:border-primary-200 py-2 px-4 shadow-sm text-xs">
+                 <button onClick={() => handleAction(student.userId, 'message')} className="btn-outline border-slate-200 text-slate-600 hover:text-primary-600 hover:border-primary-200 py-2 px-4 shadow-sm text-xs">
                    ✉️ 자동 격려 메시지
                  </button>
-                 <button onClick={() => handleAction(student.id, 'mentor')} className="btn-primary py-2 px-4 shadow-sm text-xs shadow-primary-500/20">
+                 <button onClick={() => handleAction(student.userId, 'mentor')} className="btn-primary py-2 px-4 shadow-sm text-xs shadow-primary-500/20">
                    👨‍🏫 1:1 멘토 배정
                  </button>
                </div>

@@ -6,6 +6,7 @@ import Header from './components/Header';
 import Home from './pages/Home';
 import CourseDetail from './pages/CourseDetail';
 import Auth from './pages/Auth';
+import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import Player from './pages/Player';
 import AdminDashboard from './pages/AdminDashboard';
@@ -24,6 +25,7 @@ function App() {
             <Route path="/" element={<Home />} />
             <Route path="/course/:id" element={<CourseDetail />} />
             <Route path="/login" element={<Auth />} />
+            <Route path="/register" element={<Register />} />
 
             {/* Protected Routes (Any logged in user) */}
             <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />

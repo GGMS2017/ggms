@@ -42,6 +42,10 @@ export default function Player() {
   const [seekCount, setSeekCount] = useState(0);
   const [showQuiz, setShowQuiz] = useState(false);
   const [quizAnswered, setQuizAnswered] = useState(false);
+  const [aiQuiz, setAiQuiz] = useState(null);
+  const [isQuizLoading, setIsQuizLoading] = useState(false);
+  const [selectedOption, setSelectedOption] = useState(null);
+  const [quizSubmitted, setQuizSubmitted] = useState(false);
 
   useEffect(() => {
     Promise.all([
@@ -174,6 +178,12 @@ export default function Player() {
         } else {
           toast.success('수강을 완료했습니다!');
         }
+        if (res.data.earnedBadges && res.data.earnedBadges.length > 0) {
+          const badgeNames = { first_lecture: '첫 강의 완료', lecture_5: '5강 돌파', lecture_10: '10강 달성', streak_3: '3일 연속 학습', streak_7: '7일 연속 학습', xp_500: 'XP 500 달성' };
+          res.data.earnedBadges.forEach(b => {
+            setTimeout(() => toast(`🏅 새 배지 획득! "${badgeNames[b] || b}"`, { icon: '✨', style: {background: '#f0fdf4', color: '#166534', fontWeight: 'bold'}, autoClose: 5000 }), 1200);
+          });
+        }
       }
     } catch(err) {
       console.error(err);
@@ -234,6 +244,22 @@ export default function Player() {
     }
   };
 
+  const fetchAiQuiz = async () => {
+    if (!currentLecture) return;
+    setIsQuizLoading(true);
+    setAiQuiz(null);
+    setSelectedOption(null);
+    setQuizSubmitted(false);
+    try {
+      const res = await api.post('/ai/quiz', { courseId, lectureId: currentLecture.id });
+      if (res.data.success) setAiQuiz(res.data.quiz);
+    } catch (err) {
+      setAiQuiz({ question: '이 강의에서 배운 핵심 개념을 스스로 정리해보세요.', options: ['완전히 이해했어요', '대부분 이해했어요', '조금 헷갈려요', '다시 봐야 할 것 같아요'], answerIndex: 0, explanation: '자기 평가를 통해 학습 상태를 점검하세요.' });
+    } finally {
+      setIsQuizLoading(false);
+    }
+  };
+
   const handleSeekBackward = () => {
     setCurrentTime(prev => Math.max(0, prev - 10));
     saveEvent('seek_backward', 'rewind 10s');
@@ -242,6 +268,7 @@ export default function Player() {
        if (newCount >= 3 && !quizAnswered) { // 3회 이상 되감기 시 집중력 저하로 간주
           setShowQuiz(true);
           setIsPlaying(false);
+          fetchAiQuiz();
        }
        return newCount;
     });
@@ -404,19 +431,70 @@ export default function Player() {
                {/* Intervention Quiz Popup overlay */}
                {showQuiz && (
                   <div className="absolute inset-0 bg-slate-900/90 backdrop-blur-sm z-50 flex flex-col items-center justify-center p-6">
-                     <div className="bg-white text-slate-800 p-8 rounded-2xl max-w-sm w-full text-center shadow-2xl animate-in slide-in-from-bottom-10 fade-in duration-300">
-                        <div className="w-16 h-16 bg-amber-100 text-amber-500 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl">☕</div>
-                        <h3 className="text-xl font-bold mb-2">잠깐 환기할까요?</h3>
-                        <p className="text-slate-500 text-sm mb-6">동일한 구간을 반복해서 시청하셨네요.<br/>집중력이 약간 떨어진 것 같아요. 간단한 퀴즈를 풀고 다시 집중해볼까요?</p>
-                        
-                        <div className="space-y-3">
-                           <button onClick={() => { setShowQuiz(false); setQuizAnswered(true); togglePlay(); }} className="w-full py-3 bg-slate-100 hover:bg-primary-50 hover:text-primary-600 rounded-xl font-medium transition-colors text-sm border border-transparent hover:border-primary-200">
-                              이해했어요! 이어서 볼게요.
-                           </button>
-                           <button onClick={() => { setShowQuiz(false); setQuizAnswered(true); }} className="w-full py-3 bg-slate-100 hover:bg-slate-200 rounded-xl font-medium transition-colors text-sm border border-transparent">
-                              아니요, 잠시 쉴게요.
-                           </button>
+                     <div className="bg-white text-slate-800 p-8 rounded-2xl max-w-md w-full shadow-2xl">
+                        <div className="flex items-center gap-3 mb-4">
+                          <div className="w-10 h-10 bg-amber-100 text-amber-500 rounded-full flex items-center justify-center text-xl shrink-0">🧠</div>
+                          <div>
+                            <h3 className="text-lg font-bold">집중력 체크 퀴즈</h3>
+                            <p className="text-xs text-slate-400">같은 구간을 반복 시청 중이에요. 간단한 퀴즈로 이해도를 확인해볼까요?</p>
+                          </div>
                         </div>
+
+                        {isQuizLoading ? (
+                          <div className="flex flex-col items-center py-8 gap-3 text-slate-400">
+                            <div className="w-8 h-8 border-4 border-primary-200 border-t-primary-600 rounded-full animate-spin"></div>
+                            <p className="text-sm">AI가 퀴즈를 생성하고 있어요...</p>
+                          </div>
+                        ) : aiQuiz ? (
+                          <div>
+                            <p className="font-semibold text-sm mb-4 bg-slate-50 p-3 rounded-lg border border-slate-100">{aiQuiz.question}</p>
+                            <div className="space-y-2 mb-4">
+                              {aiQuiz.options.map((opt, idx) => {
+                                let btnClass = 'w-full text-left py-2.5 px-4 rounded-xl text-sm font-medium transition-all border ';
+                                if (!quizSubmitted) {
+                                  btnClass += selectedOption === idx ? 'bg-primary-50 border-primary-400 text-primary-700' : 'bg-slate-50 border-slate-200 hover:border-primary-300 hover:bg-primary-50/50';
+                                } else {
+                                  if (idx === aiQuiz.answerIndex) btnClass += 'bg-green-50 border-green-400 text-green-700';
+                                  else if (idx === selectedOption) btnClass += 'bg-red-50 border-red-300 text-red-600 line-through';
+                                  else btnClass += 'bg-slate-50 border-slate-200 text-slate-400';
+                                }
+                                return (
+                                  <button key={idx} className={btnClass} onClick={() => !quizSubmitted && setSelectedOption(idx)}>
+                                    <span className="font-bold mr-2">{['①','②','③','④'][idx]}</span>{opt}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                            {quizSubmitted && (
+                              <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 mb-4 text-sm text-blue-700">
+                                💡 {aiQuiz.explanation}
+                              </div>
+                            )}
+                            <div className="flex gap-2">
+                              {!quizSubmitted ? (
+                                <button onClick={() => selectedOption !== null && setQuizSubmitted(true)} disabled={selectedOption === null} className="flex-1 py-2.5 bg-primary-600 disabled:bg-slate-200 disabled:text-slate-400 text-white rounded-xl font-medium text-sm transition-colors hover:bg-primary-700">
+                                  제출하기
+                                </button>
+                              ) : (
+                                <button onClick={() => { setShowQuiz(false); setQuizAnswered(true); setIsPlaying(true); }} className="flex-1 py-2.5 bg-primary-600 text-white rounded-xl font-medium text-sm hover:bg-primary-700">
+                                  이어서 학습하기 ▶
+                                </button>
+                              )}
+                              <button onClick={() => { setShowQuiz(false); setQuizAnswered(true); }} className="px-4 py-2.5 bg-slate-100 text-slate-600 rounded-xl font-medium text-sm hover:bg-slate-200">
+                                닫기
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="space-y-3">
+                            <button onClick={() => { setShowQuiz(false); setQuizAnswered(true); setIsPlaying(true); }} className="w-full py-3 bg-primary-600 text-white rounded-xl font-medium text-sm hover:bg-primary-700">
+                              이해했어요! 이어서 볼게요.
+                            </button>
+                            <button onClick={() => { setShowQuiz(false); setQuizAnswered(true); }} className="w-full py-3 bg-slate-100 text-slate-600 rounded-xl font-medium text-sm hover:bg-slate-200">
+                              잠시 쉴게요.
+                            </button>
+                          </div>
+                        )}
                      </div>
                   </div>
                )}

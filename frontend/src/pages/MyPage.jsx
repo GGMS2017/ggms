@@ -9,20 +9,40 @@ import { toast } from 'react-toastify';
 export default function MyPage() {
   const { user, updateUser } = useAuthStore();
   const [gamification, setGamification] = useState(null);
-  
+  const [userStats, setUserStats] = useState(null);
+
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState(user?.name || '');
   const [editEmail, setEditEmail] = useState(user?.email || `${(user?.name || 'user').toLowerCase().replace(/\s/g, '')}@example.com`);
+  const [pwForm, setPwForm] = useState({ current: '', next: '', confirm: '' });
+  const [isPwLoading, setIsPwLoading] = useState(false);
 
   useEffect(() => {
     api.get('/gamification')
-      .then(res => {
-        if (res.data.success) {
-          setGamification(res.data.myStats);
-        }
-      })
+      .then(res => { if (res.data.success) setGamification(res.data.myStats); })
+      .catch(err => console.error(err));
+
+    api.get('/user/stats')
+      .then(res => { if (res.data.success) setUserStats(res.data.stats); })
       .catch(err => console.error(err));
   }, []);
+
+  const handlePasswordChange = async () => {
+    if (pwForm.next !== pwForm.confirm) { toast.error('새 비밀번호가 일치하지 않습니다.'); return; }
+    if (pwForm.next.length < 6) { toast.error('비밀번호는 6자 이상이어야 합니다.'); return; }
+    setIsPwLoading(true);
+    try {
+      const res = await api.put('/user/password', { currentPassword: pwForm.current, newPassword: pwForm.next });
+      if (res.data.success) {
+        toast.success('비밀번호가 변경되었습니다.');
+        setPwForm({ current: '', next: '', confirm: '' });
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.error || '비밀번호 변경에 실패했습니다.');
+    } finally {
+      setIsPwLoading(false);
+    }
+  };
 
   const handleProfileUpdate = async () => {
     try {
@@ -167,7 +187,7 @@ export default function MyPage() {
                 <BookOpen size={20} className="text-primary-500 group-hover:text-primary-100 transition-colors" />
                 <span className="font-medium text-sm text-slate-600 group-hover:text-primary-50 transition-colors">수강 중인 강의</span>
               </div>
-              <div className="text-3xl font-bold text-slate-800 group-hover:text-white transition-colors">3<span className="text-sm font-normal ml-1 text-slate-500 group-hover:text-primary-100 transition-colors">개</span></div>
+              <div className="text-3xl font-bold text-slate-800 group-hover:text-white transition-colors">{userStats ? userStats.studyingCount : '—'}<span className="text-sm font-normal ml-1 text-slate-500 group-hover:text-primary-100 transition-colors">개</span></div>
             </Link>
             
             <Link to="/dashboard" state={{ tab: 'completed' }} className="group bg-white border border-slate-100 p-5 rounded-2xl shadow-sm transform hover:scale-[1.02] hover:bg-gradient-to-br hover:from-primary-500 hover:to-primary-600 hover:border-transparent hover:shadow-md transition-all duration-300 block">
@@ -175,7 +195,7 @@ export default function MyPage() {
                 <Award size={20} className="text-amber-500 group-hover:text-primary-100 transition-colors" />
                 <span className="font-medium text-sm text-slate-600 group-hover:text-primary-50 transition-colors">수료한 강의</span>
               </div>
-              <div className="text-3xl font-bold text-slate-800 group-hover:text-white transition-colors">1<span className="text-sm font-normal ml-1 text-slate-500 group-hover:text-primary-100 transition-colors">개</span></div>
+              <div className="text-3xl font-bold text-slate-800 group-hover:text-white transition-colors">{userStats ? userStats.completedCount : '—'}<span className="text-sm font-normal ml-1 text-slate-500 group-hover:text-primary-100 transition-colors">개</span></div>
             </Link>
 
             <div className="group bg-white border border-slate-100 p-5 rounded-2xl shadow-sm transform hover:scale-[1.02] hover:bg-gradient-to-br hover:from-primary-500 hover:to-primary-600 hover:border-transparent hover:shadow-md transition-all duration-300">
@@ -183,7 +203,7 @@ export default function MyPage() {
                 <Clock size={20} className="text-emerald-500 group-hover:text-primary-100 transition-colors" />
                 <span className="font-medium text-sm text-slate-600 group-hover:text-primary-50 transition-colors">총 학습 시간</span>
               </div>
-              <div className="text-3xl font-bold text-slate-800 group-hover:text-white transition-colors">24<span className="text-sm font-normal ml-1 text-slate-500 group-hover:text-primary-100 transition-colors">시간</span></div>
+              <div className="text-3xl font-bold text-slate-800 group-hover:text-white transition-colors">{userStats ? userStats.totalLearningHours : '—'}<span className="text-sm font-normal ml-1 text-slate-500 group-hover:text-primary-100 transition-colors">시간</span></div>
             </div>
           </div>
 
@@ -212,9 +232,11 @@ export default function MyPage() {
                   <Lock size={16} className="text-slate-400" /> 비밀번호 변경
                 </h4>
                 <div className="space-y-3 max-w-sm">
-                  <input type="password" placeholder="현재 비밀번호" className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/50" />
-                  <input type="password" placeholder="새 비밀번호" className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/50" />
-                  <button className="px-4 py-2 bg-slate-800 text-white rounded-lg text-sm font-medium hover:bg-slate-700 transition-colors">
+                  <input type="password" placeholder="현재 비밀번호" value={pwForm.current} onChange={e => setPwForm(p => ({...p, current: e.target.value}))} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/50" />
+                  <input type="password" placeholder="새 비밀번호 (6자 이상)" value={pwForm.next} onChange={e => setPwForm(p => ({...p, next: e.target.value}))} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/50" />
+                  <input type="password" placeholder="새 비밀번호 확인" value={pwForm.confirm} onChange={e => setPwForm(p => ({...p, confirm: e.target.value}))} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/50" />
+                  <button onClick={handlePasswordChange} disabled={isPwLoading} className="px-4 py-2 bg-slate-800 text-white rounded-lg text-sm font-medium hover:bg-slate-700 transition-colors disabled:opacity-60 flex items-center gap-2">
+                    {isPwLoading ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : null}
                     비밀번호 업데이트
                   </button>
                 </div>
