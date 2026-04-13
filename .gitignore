@@ -1,0 +1,14 @@
+node_modules/
+.env
+dist/
+.vite/
+.DS_Store
+
+# 문서 파일
+*.docx
+*.pdf
+~$*.docx
+
+# 기타
+.claude/
+update_report.js
