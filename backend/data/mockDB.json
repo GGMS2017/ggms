@@ -9,9 +9,9 @@
       "level": 14,
       "streak": 5,
       "badges": [
-        "first_blood",
-        "5_days_streak",
-        "fast_learner"
+        "first_lecture",
+        "streak_3",
+        "lecture_5"
       ]
     },
     {
@@ -23,7 +23,8 @@
       "level": 99,
       "streak": 100,
       "badges": [
-        "admin_badge"
+        "xp_500",
+        "lecture_10"
       ]
     },
     {
@@ -35,7 +36,9 @@
       "level": 10,
       "streak": 30,
       "badges": [
-        "best_teacher"
+        "xp_500",
+        "lecture_10",
+        "streak_7"
       ]
     },
     {
@@ -81,8 +84,8 @@
       "level": 10,
       "streak": 5,
       "badges": [
-        "fast_learner",
-        "week_warrior"
+        "lecture_5",
+        "streak_7"
       ]
     },
     {
@@ -104,7 +107,7 @@
       "level": 4,
       "streak": 8,
       "badges": [
-        "fast_learner"
+        "lecture_5"
       ]
     },
     {
@@ -116,7 +119,7 @@
       "level": 17,
       "streak": 0,
       "badges": [
-        "fast_learner"
+        "lecture_5"
       ]
     },
     {
@@ -128,7 +131,7 @@
       "level": 2,
       "streak": 9,
       "badges": [
-        "fast_learner"
+        "lecture_5"
       ]
     },
     {
@@ -140,8 +143,8 @@
       "level": 9,
       "streak": 1,
       "badges": [
-        "fast_learner",
-        "week_warrior"
+        "lecture_5",
+        "streak_7"
       ]
     },
     {
@@ -153,7 +156,7 @@
       "level": 14,
       "streak": 0,
       "badges": [
-        "fast_learner"
+        "lecture_5"
       ]
     },
     {
@@ -165,8 +168,8 @@
       "level": 2,
       "streak": 2,
       "badges": [
-        "fast_learner",
-        "week_warrior"
+        "lecture_5",
+        "streak_7"
       ]
     },
     {
@@ -178,7 +181,7 @@
       "level": 7,
       "streak": 9,
       "badges": [
-        "fast_learner"
+        "lecture_5"
       ]
     },
     {
@@ -190,7 +193,7 @@
       "level": 18,
       "streak": 6,
       "badges": [
-        "fast_learner"
+        "lecture_5"
       ]
     },
     {
@@ -212,7 +215,7 @@
       "level": 13,
       "streak": 3,
       "badges": [
-        "fast_learner"
+        "lecture_5"
       ]
     },
     {
@@ -234,8 +237,8 @@
       "level": 1,
       "streak": 6,
       "badges": [
-        "fast_learner",
-        "week_warrior"
+        "lecture_5",
+        "streak_7"
       ]
     },
     {
@@ -247,8 +250,8 @@
       "level": 5,
       "streak": 4,
       "badges": [
-        "fast_learner",
-        "week_warrior"
+        "lecture_5",
+        "streak_7"
       ]
     },
     {
@@ -260,7 +263,7 @@
       "level": 14,
       "streak": 0,
       "badges": [
-        "fast_learner"
+        "lecture_5"
       ]
     },
     {
@@ -272,7 +275,7 @@
       "level": 20,
       "streak": 8,
       "badges": [
-        "fast_learner"
+        "lecture_5"
       ]
     },
     {
@@ -625,7 +628,10 @@
       "progress": {
         "completedLectures": [
           "lec_2_1_1"
-        ]
+        ],
+        "positions": {
+          "lec_2_1_2": 843
+        }
       }
     },
     {
@@ -641,7 +647,9 @@
       ],
       "progress": {
         "completedLectures": [],
-        "positions": {}
+        "positions": {
+          "lec_3_1_1": 721
+        }
       }
     },
     {

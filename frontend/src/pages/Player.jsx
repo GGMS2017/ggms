@@ -37,6 +37,11 @@ export default function Player() {
   const [gradeResult, setGradeResult] = useState(null);
   const [isGrading, setIsGrading] = useState(false);
 
+  // Q&A State
+  const [qaList, setQaList] = useState([]);
+  const [qaInput, setQaInput] = useState('');
+  const [isQaLoading, setIsQaLoading] = useState(false);
+
   // Intervention & AI Risk Tracking State
   const { user } = useAuthStore();
   const [seekCount, setSeekCount] = useState(0);
@@ -94,6 +99,14 @@ export default function Player() {
        icon: "🔥"
     });
   }, [courseId]);
+
+  useEffect(() => {
+    if (currentLecture && currentLecture.id && courseId) {
+      api.get(`/qa/${courseId}/${currentLecture.id}`)
+        .then(res => { if (res.data.success) setQaList(res.data.questions); })
+        .catch(() => {});
+    }
+  }, [currentLecture, courseId]);
 
   useEffect(() => {
     if (currentLecture && currentLecture.id) {
@@ -156,6 +169,28 @@ export default function Player() {
       chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [chatMessages, activeTab]);
+
+  const handleQaSubmit = async () => {
+    if (!qaInput.trim()) return;
+    setIsQaLoading(true);
+    try {
+      const res = await api.post('/qa', {
+        courseId,
+        lectureId: currentLecture?.id,
+        question: qaInput.trim()
+      });
+      if (res.data.success) {
+        setQaList(prev => [res.data.qa, ...prev]);
+        setQaInput('');
+        toast.success('질문이 등록되었습니다.');
+      }
+    } catch (err) {
+      toast.error('질문 등록에 실패했습니다.');
+      console.error(err);
+    } finally {
+      setIsQaLoading(false);
+    }
+  };
 
   const toggleSection = (secId) => {
     setExpandedSections(prev => ({ ...prev, [secId]: !prev[secId] }));
@@ -556,12 +591,10 @@ export default function Player() {
                       {currentLecture?.note ? (
                         <div className="mt-4 leading-relaxed marker:text-primary-500" dangerouslySetInnerHTML={{ __html: currentLecture.note }}></div>
                       ) : (
-                        <div>
-                          <p className="text-slate-600">이 강의는 등록된 상세 노트가 없습니다.</p>
-                          <ul className="mt-4 space-y-2 text-slate-600">
-                            <li>강의 핵심 포인트 1</li>
-                            <li>실습에 필요한 코드 스니펫 등록 대기중</li>
-                          </ul>
+                        <div className="flex flex-col items-center justify-center py-16 text-center">
+                          <NotebookPen size={40} className="text-slate-300 mb-4" />
+                          <p className="text-slate-500 text-sm font-medium">이 강의는 등록된 노트가 없습니다.</p>
+                          <p className="text-slate-400 text-xs mt-1">강사가 학습 자료를 준비 중입니다.</p>
                         </div>
                       )}
                     </div>
@@ -571,18 +604,45 @@ export default function Player() {
                       <div className="mb-6 flex gap-4">
                         <div className="w-10 h-10 bg-primary-100 rounded-full flex items-center justify-center text-primary-700 font-bold shrink-0">Q</div>
                         <div className="w-full">
-                           <textarea className="w-full border py-3 px-4 rounded-xl border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary-500/50 resize-none" rows="2" placeholder="강의 중에 궁금한 점이 있으신가요?"></textarea>
-                           <div className="flex justify-end mt-2"><button className="btn-primary text-sm px-4 py-1.5 rounded-lg">질문 등록</button></div>
+                           <textarea
+                             className="w-full border py-3 px-4 rounded-xl border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary-500/50 resize-none"
+                             rows="2"
+                             placeholder="강의 중에 궁금한 점이 있으신가요?"
+                             value={qaInput}
+                             onChange={e => setQaInput(e.target.value)}
+                           />
+                           <div className="flex justify-end mt-2">
+                             <button
+                               onClick={handleQaSubmit}
+                               disabled={!qaInput.trim() || isQaLoading}
+                               className="btn-primary text-sm px-4 py-1.5 rounded-lg flex items-center gap-2 disabled:opacity-50"
+                             >
+                               {isQaLoading && <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
+                               질문 등록
+                             </button>
+                           </div>
                         </div>
                       </div>
-                      <div className="border border-slate-100 rounded-xl p-4 bg-white shadow-sm mt-4">
-                        <div className="flex items-center gap-2 mb-2">
-                           <div className="w-6 h-6 bg-slate-200 rounded-full flex items-center justify-center text-xs font-bold text-slate-500">A</div>
-                           <span className="font-semibold text-sm">김강사</span>
-                           <span className="text-xs text-slate-400">1일 전</span>
+                      {qaList.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center py-10 text-center">
+                          <MessageSquare size={36} className="text-slate-300 mb-3" />
+                          <p className="text-slate-500 text-sm">아직 등록된 질문이 없습니다.</p>
+                          <p className="text-slate-400 text-xs mt-1">첫 번째 질문을 남겨보세요!</p>
                         </div>
-                        <p className="text-sm text-slate-700">이전 수강생 분들이 많이 하셨던 질문들을 여기에 표시하면 좋습니다. 위 강의 노트의 실습 코드를 참고해보세요.</p>
-                      </div>
+                      ) : (
+                        <div className="space-y-4">
+                          {qaList.map((q, idx) => (
+                            <div key={q._id || idx} className="border border-slate-100 rounded-xl p-4 bg-white shadow-sm">
+                              <div className="flex items-center gap-2 mb-2">
+                                <div className="w-6 h-6 bg-primary-100 rounded-full flex items-center justify-center text-xs font-bold text-primary-700">Q</div>
+                                <span className="font-semibold text-sm">{q.userName || '수강생'}</span>
+                                <span className="text-xs text-slate-400">{new Date(q.createdAt).toLocaleDateString('ko-KR')}</span>
+                              </div>
+                              <p className="text-sm text-slate-700 ml-8">{q.question}</p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   )}
                   {activeTab === 'ai_tutor' && (

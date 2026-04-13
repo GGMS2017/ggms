@@ -10,6 +10,7 @@ const User = require('./models/User');
 const Course = require('./models/Course');
 const Enrollment = require('./models/Enrollment');
 const Message = require('./models/Message');
+const QA = require('./models/QA');
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
@@ -80,11 +81,20 @@ app.post('/api/register', async (req, res) => {
 // 0. 로그인 엔드포인트
 app.post('/api/login', async (req, res) => {
   try {
-    const { email } = req.body;
+    const { email, password } = req.body;
     const user = await User.findOne({ email });
-    
+
     if (!user) {
       return res.status(401).json({ error: '등록되지 않은 이메일입니다.' });
+    }
+
+    // bcrypt 비밀번호 검증 (비밀번호가 설정된 계정의 경우)
+    if (user.password) {
+      const bcrypt = require('bcryptjs');
+      const isMatch = await bcrypt.compare(password || '', user.password);
+      if (!isMatch) {
+        return res.status(401).json({ error: '비밀번호가 올바르지 않습니다.' });
+      }
     }
 
     const token = jwt.sign(
@@ -565,14 +575,47 @@ app.get('/api/recommendations', authMiddleware, async (req, res) => {
   try {
     const myEnrollments = await Enrollment.find({ userId: req.user.id });
     const enrolledCourseIds = myEnrollments.map(e => e.courseId);
-    
+
     let availableCourses = await Course.find({ id: { $nin: enrolledCourseIds } });
-    
-    availableCourses = availableCourses.sort(() => 0.5 - Math.random());
-    const recommendations = availableCourses.slice(0, 3).map(c => ({
-      ...c.toObject(),
-      aiReason: '회원님의 최근 학습 패턴과 부족한 스킬셋(예: 클라우드/보안)을 보완하기 위해 AI가 추천합니다.'
-    }));
+
+    // Fisher-Yates 셔플 (편향 없는 무작위 정렬)
+    for (let i = availableCourses.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [availableCourses[i], availableCourses[j]] = [availableCourses[j], availableCourses[i]];
+    }
+
+    // 태그 기반 개인화 AI 추천 이유 생성
+    const tagReasonMap = {
+      'AI': 'AI·LLM 기술 트렌드를 반영한 과정으로, 최신 생성형 AI 역량을 단기간에 습득할 수 있습니다.',
+      'LangChain': 'LangChain 에코시스템을 활용해 실무형 AI 파이프라인 구축 능력을 키울 수 있습니다.',
+      'AWS': 'AWS 클라우드 인프라 역량은 현재 가장 높은 채용 수요가 있는 스킬셋입니다.',
+      'Cloud': '클라우드 아키텍처 설계 능력은 현업에서 즉시 활용 가능한 고수요 스킬입니다.',
+      'Security': '보안 전문성은 모든 IT 직군에서 필수 역량으로 요구되고 있습니다.',
+      'Web': '웹 풀스택 기술은 스타트업부터 대기업까지 폭넓게 적용되는 핵심 기술입니다.',
+      'React': 'React 기반 프론트엔드 개발 역량은 국내 채용 시장에서 가장 높은 수요를 보입니다.',
+      'Node.js': 'Node.js 백엔드 역량은 회원님의 학습 이력을 보완하는 최적의 선택입니다.',
+      'Fullstack': '풀스택 개발 능력은 1인 서비스 개발부터 팀 프로젝트까지 경쟁력을 크게 높여줍니다.',
+      'Data Science': '데이터 분석 역량은 AI 시대의 핵심 역량으로 직무 전환에도 강점이 됩니다.',
+      'Python': 'Python은 AI·데이터·자동화 등 다양한 분야에서 필수 언어로 자리잡았습니다.',
+      'ML': '머신러닝 모델링 경험은 데이터 기반 의사결정 역량을 증명하는 핵심 포트폴리오입니다.',
+      'Mobile': '모바일 앱 개발 역량은 빠르게 성장하는 앱 시장에서 독립적인 서비스 출시를 가능하게 합니다.',
+      'Flutter': 'Flutter 크로스플랫폼 기술 하나로 iOS·Android를 동시에 커버할 수 있습니다.',
+      'Design': '사용자 중심 UI/UX 설계 역량은 개발자의 취업 경쟁력을 크게 차별화합니다.',
+      'UI/UX': '비전공자도 단기간에 실무 수준의 디자인 역량을 확보할 수 있는 과정입니다.',
+    };
+
+    const recommendations = availableCourses.slice(0, 3).map(c => {
+      const courseObj = c.toObject();
+      const tags = courseObj.tags || [];
+      let aiReason = '회원님의 학습 목표와 현재 수강 이력을 분석하여 AI가 선별한 추천 과정입니다.';
+      for (const tag of tags) {
+        if (tagReasonMap[tag]) {
+          aiReason = tagReasonMap[tag];
+          break;
+        }
+      }
+      return { ...courseObj, aiReason };
+    });
 
     res.json({ success: true, recommendations });
   } catch (error) {
@@ -804,6 +847,39 @@ app.post('/api/admin/generate-course', authMiddleware, async (req, res) => {
   } catch (error) {
     console.error("AI Course Generation Error:", error);
     res.status(500).json({ error: error.message || '강좌 생성 중 오류 발생' });
+  }
+});
+
+// Q&A: 질문 등록 (Protected)
+app.post('/api/qa', authMiddleware, async (req, res) => {
+  try {
+    const { courseId, lectureId, question } = req.body;
+    if (!courseId || !lectureId || !question) {
+      return res.status(400).json({ error: '필수 정보가 누락되었습니다.' });
+    }
+    const user = await User.findOne({ id: req.user.id });
+    const qa = new QA({
+      courseId,
+      lectureId,
+      userId: req.user.id,
+      userName: user ? user.name : req.user.name,
+      question
+    });
+    await qa.save();
+    res.json({ success: true, qa });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Q&A: 강의별 질문 목록 조회 (Protected)
+app.get('/api/qa/:courseId/:lectureId', authMiddleware, async (req, res) => {
+  try {
+    const { courseId, lectureId } = req.params;
+    const questions = await QA.find({ courseId, lectureId }).sort({ createdAt: -1 });
+    res.json({ success: true, questions });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
 });
 
